@@ -34,7 +34,7 @@ import {
   SnackType,
 } from "./types/types.js";
 import { type Snackbar } from "./ui/snackbar.js";
-import { repeat } from "lit/directives/repeat.js";
+// import { repeat } from "lit/directives/repeat.js";
 import { v0_8 } from "@a2ui/lit";
 import * as UI from "@a2ui/lit/ui";
 
@@ -47,12 +47,29 @@ import { config as restaurantConfig } from "./configs/restaurant.js";
 import { config as contactsConfig } from "./configs/contacts.js";
 import { config as orchestratorConfig } from "./configs/orchestrator.js";
 import { styleMap } from "lit/directives/style-map.js";
+import { classMap } from "lit/directives/class-map.js";
 
 const configs: Record<string, AppConfig> = {
   orchestrator: orchestratorConfig,
   restaurant: restaurantConfig,
   contacts: contactsConfig,
 };
+
+interface HistoryItem {
+  role: "user" | "agent";
+  text?: string;
+  processor?: any;
+  surfaces?: Map<string, any> | ReadonlyMap<string, any>;
+  messages?: v0_8.Types.ServerToClientMessage[];
+  allTextResponses?: string[];
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  history: HistoryItem[];
+  timestamp: number;
+}
 
 @customElement("a2ui-shell")
 export class A2UILayoutEditor extends SignalWatcher(LitElement) {
@@ -75,6 +92,20 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   accessor #loadingTextIndex = 0;
   #loadingInterval: number | undefined;
 
+  @state()
+  accessor #conversations: Conversation[] = [];
+
+  @state()
+  accessor #activeConversationId: string | null = null;
+
+  get #activeHistory(): HistoryItem[] {
+    if (!this.#activeConversationId) return [];
+    const conversation = this.#conversations.find(
+      (c) => c.id === this.#activeConversationId
+    );
+    return conversation ? conversation.history : [];
+  }
+
   static styles = [
     unsafeCSS(v0_8.Styles.structuralStyles),
     css`
@@ -83,12 +114,104 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       }
 
       :host {
-        display: block;
-        max-width: 640px;
-        margin: 0 auto;
-        min-height: 100%;
+        display: flex;
+        flex-direction: row;
+        width: 100vw;
+        height: 100vh;
         color: light-dark(var(--n-10), var(--n-90));
         font-family: var(--font-family);
+        overflow: hidden;
+        background: light-dark(var(--n-0), var(--n-100));
+      }
+
+      .sidebar {
+        width: 260px;
+        background: light-dark(var(--n-5), var(--n-95));
+        border-right: 1px solid var(--n-80);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+      }
+
+      .sidebar-header {
+        padding: 16px;
+      }
+
+      .new-chat-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px;
+        background: var(--p-40);
+        color: var(--n-100);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      
+      .new-chat-btn:hover {
+        opacity: 0.9;
+      }
+
+      .conversation-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 8px;
+      }
+
+      .conversation-item {
+        padding: 12px;
+        margin-bottom: 4px;
+        border-radius: 8px;
+        cursor: pointer;
+        color: light-dark(var(--n-30), var(--n-80));
+        transition: background 0.2s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .conversation-item:hover {
+        background: light-dark(var(--n-10), var(--n-90));
+      }
+
+      .conversation-item.active {
+        background: light-dark(var(--n-15), var(--n-85));
+        color: light-dark(var(--n-10), var(--n-90));
+        font-weight: 500;
+      }
+
+      .main-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .content-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: var(--bb-grid-size-3);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        max-width: 900px;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .input-area {
+        padding: 16px;
+        background: light-dark(var(--n-0), var(--n-100));
+        border-top: 1px solid var(--n-80);
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
       }
 
       #hero-img {
@@ -106,17 +229,17 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       #surfaces {
         width: 100%;
         max-width: 100svw;
-        padding: var(--bb-grid-size-3);
+        /* padding: var(--bb-grid-size-3); */ /* Padding moved to content-area */
         animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 0.3s backwards;
       }
 
       form {
         display: flex;
         flex-direction: column;
-        flex: 1;
+        /* flex: 1; */ /* Form is no longer flex: 1 */
         gap: 16px;
         align-items: center;
-        padding: 16px 0;
+        /* padding: 16px 0; */ /* Padding handled by input-area */
         animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 1s backwards;
 
         & h1 {
@@ -171,6 +294,26 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         justify-content: center;
         animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 0.3s backwards;
         gap: 16px;
+      }
+
+      .user-message {
+        align-self: flex-end;
+        background: var(--p-90);
+        color: var(--n-10);
+        padding: 12px 16px;
+        border-radius: 16px 16px 0 16px;
+        max-width: 80%;
+        word-break: break-word;
+      }
+
+      .agent-message {
+        align-self: flex-start;
+        background: light-dark(var(--n-90), var(--n-20));
+        color: light-dark(var(--n-10), var(--n-90));
+        padding: 12px 16px;
+        border-radius: 16px 16px 16px 0;
+        max-width: 80%;
+        word-break: break-word;
       }
 
       .spinner {
@@ -268,7 +411,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     `,
   ];
 
-  #processor = v0_8.Data.createSignalA2uiMessageProcessor();
+  // #processor = v0_8.Data.createSignalA2uiMessageProcessor();
   #a2uiClient = new A2UIClient();
   #snackbar: Snackbar | undefined = undefined;
   #pendingSnackbarMessages: Array<{
@@ -306,12 +449,58 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   }
 
   render() {
-    return [
-      this.#renderThemeToggle(),
-      this.#maybeRenderForm(),
-      this.#maybeRenderData(),
-      this.#maybeRenderError(),
-    ];
+    return html`
+      ${this.#renderThemeToggle()}
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <button class="new-chat-btn" @click=${this.#createNewChat}>
+            <span class="g-icon">add</span> New Chat
+          </button>
+        </div>
+        <div class="conversation-list">
+          ${this.#conversations.map(
+            (conv) => html`
+              <div
+                class=${classMap({
+                  "conversation-item": true,
+                  active: conv.id === this.#activeConversationId,
+                })}
+                @click=${() => this.#selectConversation(conv.id)}
+              >
+                <span class="conversation-title"
+                  >${conv.title || "New Chat"}</span
+                >
+              </div>
+            `
+          )}
+        </div>
+      </div>
+      <div class="main-container">
+        <div class="content-area">
+          ${!this.#activeConversationId || this.#activeHistory.length === 0
+            ? this.#renderWelcome()
+            : nothing}
+          ${this.#renderHistory()} ${this.#maybeRenderData()}
+          ${this.#maybeRenderError()}
+        </div>
+        <div class="input-area">${this.#renderInputForm()}</div>
+      </div>
+    `;
+  }
+
+  #createNewChat() {
+    const newConv: Conversation = {
+      id: globalThis.crypto.randomUUID(),
+      title: "",
+      history: [],
+      timestamp: Date.now(),
+    };
+    this.#conversations = [newConv, ...this.#conversations];
+    this.#activeConversationId = newConv.id;
+  }
+
+  #selectConversation(id: string) {
+    this.#activeConversationId = id;
   }
 
   #renderThemeToggle() {
@@ -335,10 +524,104 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     </div>`;
   }
 
-  #maybeRenderForm() {
-    if (this.#requesting) return nothing;
-    if (this.#lastMessages.length > 0) return nothing;
+  #renderWelcome() {
+    return html`
+      ${this.config.heroImage
+        ? html`<div
+            style=${styleMap({
+              "--background-image-light": `url(${this.config.heroImage})`,
+              "--background-image-dark": `url(${
+                this.config.heroImageDark ?? this.config.heroImage
+              })`,
+            })}
+            id="hero-img"
+          ></div>`
+        : nothing}
+      <h1 class="app-title" style="text-align: center;">${this.config.title}</h1>
+    `;
+  }
 
+  #renderHistory() {
+    return html`
+      ${this.#activeHistory.map((item) => {
+        if (item.role === "user") {
+          return html`<div class="user-message">${item.text}</div>`;
+        }
+        
+        return html`<div class="agent-message">
+            ${this.#renderAgentContent(item)}
+        </div>`;
+      })}
+    `;
+  }
+
+  #renderAgentContent(item: any) {
+      if (item.surfaces && item.processor) {
+          const surfaces = Array.from(item.surfaces as Map<string, any>);
+          if (surfaces.length > 0) {
+             const [surfaceId, surface] = surfaces[surfaces.length - 1];
+             return html`<a2ui-surface
+                @a2uiaction=${async (
+                  evt: v0_8.Events.StateEvent<"a2ui.action">
+                ) => {
+                  const [target] = evt.composedPath();
+                  if (!(target instanceof HTMLElement)) {
+                    return;
+                  }
+
+                  const context: v0_8.Types.A2UIClientEventMessage["userAction"]["context"] =
+                    {};
+                  if (evt.detail.action.context) {
+                    const srcContext = evt.detail.action.context;
+                    for (const ctxItem of srcContext) {
+                      if (ctxItem.value.literalBoolean) {
+                        context[ctxItem.key] = ctxItem.value.literalBoolean;
+                      } else if (ctxItem.value.literalNumber) {
+                        context[ctxItem.key] = ctxItem.value.literalNumber;
+                      } else if (ctxItem.value.literalString) {
+                        context[ctxItem.key] = ctxItem.value.literalString;
+                      } else if (ctxItem.value.path) {
+                        const path = item.processor.resolvePath(
+                          ctxItem.value.path,
+                          evt.detail.dataContextPath
+                        );
+                        const value = item.processor.getData(
+                          evt.detail.sourceComponent,
+                          path,
+                          surfaceId
+                        );
+                        context[ctxItem.key] = value;
+                      }
+                    }
+                  }
+
+                  const message: v0_8.Types.A2UIClientEventMessage = {
+                    userAction: {
+                      name: evt.detail.action.name,
+                      surfaceId,
+                      sourceComponentId: target.id,
+                      timestamp: new Date().toISOString(),
+                      context,
+                    },
+                  };
+
+                  await this.#sendAndProcessMessage(message);
+                }}
+                .surfaceId=${surfaceId}
+                .surface=${surface}
+                .processor=${item.processor}
+              ></a2ui-surface>`;
+          }
+      }
+
+      if (item.text) {
+          return html`<div>${item.text}</div>`;
+      }
+
+      return nothing;
+  }
+
+  #renderInputForm() {
     return html` <form
       @submit=${async (evt: Event) => {
         evt.preventDefault();
@@ -350,25 +633,20 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         if (!body) {
           return;
         }
+        
+        // Reset form
+        evt.target.reset();
+
         const message = body as v0_8.Types.A2UIClientEventMessage;
+        
+
         await this.#sendAndProcessMessage(message);
       }}
     >
-      ${this.config.heroImage
-        ? html`<div
-            style=${styleMap({
-          "--background-image-light": `url(${this.config.heroImage})`,
-          "--background-image-dark": `url(${this.config.heroImageDark ?? this.config.heroImage
-            })`,
-        })}
-            id="hero-img"
-          ></div>`
-        : nothing}
-      <h1 class="app-title">${this.config.title}</h1>
       <div>
         <input
           required
-          value="${this.config.placeholder}"
+          placeholder="${this.config.placeholder}"
           autocomplete="off"
           id="body"
           name="body"
@@ -381,6 +659,8 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       </div>
     </form>`;
   }
+
+  // #maybeRenderForm removed
 
   #startLoadingAnimation() {
     if (
@@ -442,80 +722,94 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       </div>`;
     }
 
-    const surfaces = this.#processor.getSurfaces();
-    if (surfaces.size === 0) {
-      return nothing;
-    }
-
-    return html`<section id="surfaces">
-      ${repeat(
-      this.#processor.getSurfaces(),
-      ([surfaceId]) => surfaceId,
-      ([surfaceId, surface]) => {
-        return html`<a2ui-surface
-              @a2uiaction=${async (
-          evt: v0_8.Events.StateEvent<"a2ui.action">
-        ) => {
-            const [target] = evt.composedPath();
-            if (!(target instanceof HTMLElement)) {
-              return;
-            }
-
-            const context: v0_8.Types.A2UIClientEventMessage["userAction"]["context"] =
-              {};
-            if (evt.detail.action.context) {
-              const srcContext = evt.detail.action.context;
-              for (const item of srcContext) {
-                if (item.value.literalBoolean) {
-                  context[item.key] = item.value.literalBoolean;
-                } else if (item.value.literalNumber) {
-                  context[item.key] = item.value.literalNumber;
-                } else if (item.value.literalString) {
-                  context[item.key] = item.value.literalString;
-                } else if (item.value.path) {
-                  const path = this.#processor.resolvePath(
-                    item.value.path,
-                    evt.detail.dataContextPath
-                  );
-                  const value = this.#processor.getData(
-                    evt.detail.sourceComponent,
-                    path,
-                    surfaceId
-                  );
-                  context[item.key] = value;
-                }
-              }
-            }
-
-            const message: v0_8.Types.A2UIClientEventMessage = {
-              userAction: {
-                name: evt.detail.action.name,
-                surfaceId,
-                sourceComponentId: target.id,
-                timestamp: new Date().toISOString(),
-                context,
-              },
-            };
-
-            await this.#sendAndProcessMessage(message);
-          }}
-              .surfaceId=${surfaceId}
-              .surface=${surface}
-              .processor=${this.#processor}
-            ></a2-uisurface>`;
-      }
-    )}
-    </section>`;
+    return nothing;
   }
 
   async #sendAndProcessMessage(request) {
+    if (!this.#activeConversationId) {
+      this.#createNewChat();
+    }
+
+    const conversationId = this.#activeConversationId!;
+    let conversation = this.#conversations.find((c) => c.id === conversationId)!;
+
+    let updatedHistory = conversation.history;
+    let updatedTitle = conversation.title;
+
+    // Add user message to history only if it is a string
+    if (typeof request === "string") {
+      const userHistoryItem: HistoryItem = {
+        role: "user",
+        text: request,
+      };
+      updatedHistory = [...conversation.history, userHistoryItem];
+
+      // Update title if first message
+      if (conversation.history.length === 0) {
+        updatedTitle = request;
+      }
+    } else if (conversation.history.length === 0) {
+      updatedTitle = "New Conversation";
+    }
+
+    // Update conversation state with user message
+    this.#conversations = this.#conversations.map((c) =>
+      c.id === conversationId
+        ? { ...c, history: updatedHistory, title: updatedTitle }
+        : c
+    );
+
     const messages = await this.#sendMessage(request);
 
     console.log(messages);
 
+    const processor = v0_8.Data.createSignalA2uiMessageProcessor();
+    processor.processMessages(messages);
+    const surfaces = processor.getSurfaces();
+
+    const historyItem: any = {
+        role: "agent",
+        messages
+    };
+
+    if (surfaces.size > 0) {
+      historyItem.processor = processor;
+      historyItem.surfaces = surfaces;
+    } else {
+      // Extract text response from dataModelUpdate if present (created by client.ts for text responses)
+      const textResponses: string[] = [];
+      for (const msg of messages) {
+        if (
+          msg.dataModelUpdate?.surfaceId === "default" &&
+          msg.dataModelUpdate.contents
+        ) {
+          for (const content of msg.dataModelUpdate.contents) {
+            if (content.key === "response" && content.valueString) {
+                textResponses.push(content.valueString);
+            }
+          }
+        }
+      }
+
+      if (textResponses.length > 0) {
+          historyItem.text = textResponses[textResponses.length - 1];
+          historyItem.allTextResponses = textResponses;
+      }
+    }
+
+    if (historyItem.surfaces || historyItem.text) {
+        // Re-fetch conversation as it might have changed (though unlikely in single-threaded JS unless async happened)
+        // Actually we are in async function, but we updated state before await.
+        // We need to append to the *current* history of the conversation.
+
+        this.#conversations = this.#conversations.map((c) =>
+            c.id === conversationId
+              ? { ...c, history: [...c.history, historyItem] }
+              : c
+          );
+    }
+
     this.#lastMessages = messages;
-    this.#processor.clearSurfaces();
-    this.#processor.processMessages(messages);
   }
 
   snackbar(
