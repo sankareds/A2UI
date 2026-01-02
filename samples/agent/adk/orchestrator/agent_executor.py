@@ -34,13 +34,8 @@ from google.adk.a2a.executor.a2a_agent_executor import (
 from a2a.types import (
     AgentCapabilities,
     AgentCard,
-    TaskArtifactUpdateEvent,
-    TaskStatusUpdateEvent,
-    TaskState,
-    Part,
 )
-from a2a.utils import new_agent_parts_message
-from a2ui.a2ui_extension import is_a2ui_part, try_activate_a2ui_extension, A2UI_EXTENSION_URI, STANDARD_CATALOG_ID, SUPPORTED_CATALOG_IDS_KEY, get_a2ui_agent_extension, A2UI_CLIENT_CAPABILITIES_KEY
+from a2ui.a2ui_extension import is_a2ui_part, try_activate_a2ui_extension, get_a2ui_agent_extension, A2UI_CLIENT_CAPABILITIES_KEY
 
 from google.adk.a2a.converters import event_converter
 from a2a.server.events import Event as A2AEvent
@@ -94,50 +89,6 @@ class OrchestratorAgentExecutor(A2aAgentExecutor):
             part_converter,
         )
 
-        # Check for artifact events and store them if needed
-        # We iterate over a copy of the list to safely modify the original list
-        for event_item in list(a2a_events):
-            if isinstance(event_item, TaskArtifactUpdateEvent):
-                # Store in session state to pick up in status event
-                if invocation_context.session:
-                     # Append to existing pending parts if any, to handle multiple artifacts
-                     existing_parts = invocation_context.session.state.get("_pending_artifact_parts", [])
-                     new_parts = [p.model_dump() for p in event_item.artifact.parts]
-                     invocation_context.session.state["_pending_artifact_parts"] = existing_parts + new_parts
-
-                     # Remove the event so it's not sent as artifact
-                     a2a_events.remove(event_item)
-                     logger.info("Intercepted TaskArtifactUpdateEvent, stored parts for status update.")
-
-        # Check for status events
-        status_event = next((e for e in a2a_events if isinstance(e, TaskStatusUpdateEvent)), None)
-
-        # If we have pending parts, we should try to attach them to a status event.
-        # If there is no status event, or it's not completed, we might need to wait or force one?
-        # But usually the artifact comes with a status update.
-        # Let's check if we have pending parts and a status event (even if not completed, maybe?)
-        # The user requirement is that the list is nested inside status.message.
-
-        if status_event:
-             # Check if we have pending parts
-             if invocation_context.session and "_pending_artifact_parts" in invocation_context.session.state:
-                 pending_parts_data = invocation_context.session.state.pop("_pending_artifact_parts")
-                 # Convert back to Part objects
-                 parts = [Part.model_validate(p) for p in pending_parts_data]
-
-                 logger.info(f"Injecting {len(parts)} parts into TaskStatusUpdateEvent message.")
-
-                 if status_event.status.message:
-                     # Append to existing message if any
-                     status_event.status.message.parts.extend(parts)
-                 else:
-                     # Create new message
-                     status_event.status.message = new_agent_parts_message(
-                        parts,
-                        context_id=status_event.context_id,
-                        task_id=status_event.task_id
-                    )
-
         for a2a_event in a2a_events:
             # Try to populate subagent agent card if available.
             subagent_card = None
@@ -153,22 +104,21 @@ class OrchestratorAgentExecutor(A2aAgentExecutor):
                     a2a_event.metadata = {}
                 a2a_event.metadata["a2a_subagent"] = subagent_card
 
-            if isinstance(a2a_event, TaskStatusUpdateEvent) and a2a_event.status.message:
-                for a2a_part in a2a_event.status.message.parts:
-                    if (
-                        is_a2ui_part(a2a_part)
-                        and (begin_rendering := a2a_part.root.data.get("beginRendering"))
-                        and (surface_id := begin_rendering.get("surfaceId"))
-                    ):
-                        asyncio.run_coroutine_threadsafe(
-                            SubagentRouteManager.set_route_to_subagent_name(
-                                surface_id,
-                                event.author,
-                                invocation_context.session_service,
-                                invocation_context.session,
-                            ),
-                            asyncio.get_event_loop(),
-                        )
+            for a2a_part in a2a_event.status.message.parts:
+                if (
+                    is_a2ui_part(a2a_part)
+                    and (begin_rendering := a2a_part.root.data.get("beginRendering"))
+                    and (surface_id := begin_rendering.get("surfaceId"))
+                ):
+                    asyncio.run_coroutine_threadsafe(
+                        SubagentRouteManager.set_route_to_subagent_name(
+                            surface_id,
+                            event.author,
+                            invocation_context.session_service,
+                            invocation_context.session,
+                        ),
+                        asyncio.get_event_loop(),
+                    )
 
         return a2a_events
 
