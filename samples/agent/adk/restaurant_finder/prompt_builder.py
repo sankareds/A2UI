@@ -842,7 +842,8 @@ def get_text_prompt() -> str:
         a. Respond by asking the user for the necessary details to make a booking (party size, date, time, dietary requirements).
 
     3.  **For confirming a booking (when you receive a query like 'User submitted a booking...'):**
-        a. Respond with a simple text confirmation of the booking details.
+        a. Make sure data and time submitted for the reservation, if not found, respond with the appropriate error message(<h3/>) along with the booking form 
+        b. If all details found then respond with a simple text confirmation of the booking details.
     """
 
 
