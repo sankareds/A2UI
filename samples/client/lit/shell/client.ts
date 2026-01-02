@@ -115,9 +115,129 @@ export class A2UIClient {
     }
 
     if (responseParts) {
+
+      let ui_response = false;
       for (const part of responseParts) {
         if (part.kind === 'data') {
           messages.push(part.data as v0_8.Types.ServerToClientMessage);
+          ui_response = true;
+        }
+      }
+
+      for (const part of responseParts) {
+        if (part.kind === 'text' && !ui_response) {
+          messages.push({
+          beginRendering: {
+            surfaceId: "default",
+            root: "root-column",
+            styles: {
+              primaryColor: "#FF0000",
+              font: "Roboto"
+            }
+          }
+          });
+          messages.push({
+            surfaceUpdate: {
+              surfaceId: "default",
+              components: [
+                {
+                  "id": "root-column",
+                  "component": {
+                    "Column": {
+                      "children": {
+                        "explicitList": [
+                          "title-heading",
+                          "item-card-template"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "title-heading",
+                  "component": {
+                    "Text": {
+                      "usageHint": "h1",
+                      "text": {
+                        "path": "title"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "item-card-template",
+                  "component": {
+                    "Card": {
+                      "child": "card-layout"
+                    }
+                  }
+                },
+                {
+                  "id": "card-layout",
+                  "component": {
+                    "Row": {
+                      "children": {
+                        "explicitList": [
+                          "card-details"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "card-details",
+                  "weight": 2,
+                  "component": {
+                    "Column": {
+                      "children": {
+                        "explicitList": [
+                          // "template-name",
+                          "template-detail"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "template-name",
+                  "component": {
+                    "Text": {
+                      "usageHint": "h3",
+                      "text": {
+                        "path": "title"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "template-detail",
+                  "component": {
+                    "Text": {
+                      "text": {
+                        "path": "response"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          });
+          messages.push({
+            dataModelUpdate: {
+              surfaceId: "default",
+              path: "/",
+              contents: [
+                {
+                  key: "title",
+                  valueString: "Response:",
+                },
+                {
+                  key: "response",
+                  valueString: part.text,
+                },
+              ],
+            },
+          });
         }
       }
     }

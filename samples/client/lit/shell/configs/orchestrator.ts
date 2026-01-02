@@ -47,11 +47,6 @@ export const config: AppConfig = {
     light-dark(#e2e8f0, #1e293b) 100%
   )`,
   placeholder: "Top 5 Chinese restaurants in New York.",
-  loadingText: [
-    "Finding the best spots for you...",
-    "Checking reviews...",
-    "Looking for open tables...",
-    "Almost there...",
-  ],
+  loadingText: [],
   serverUrl: "http://localhost:10005",
 };

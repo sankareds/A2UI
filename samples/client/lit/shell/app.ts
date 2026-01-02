@@ -49,9 +49,9 @@ import { config as orchestratorConfig } from "./configs/orchestrator.js";
 import { styleMap } from "lit/directives/style-map.js";
 
 const configs: Record<string, AppConfig> = {
+  orchestrator: orchestratorConfig,
   restaurant: restaurantConfig,
   contacts: contactsConfig,
-  orchestrator: orchestratorConfig
 };
 
 @customElement("a2ui-shell")
@@ -287,8 +287,8 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
     // Load config from URL
     const urlParams = new URLSearchParams(window.location.search);
-    const appKey = urlParams.get("app") || "restaurant";
-    this.config = configs[appKey] || configs.restaurant;
+    const appKey = urlParams.get("app") || "orchestrator";
+    this.config = configs[appKey] || configs.orchestrator;
 
     // Apply the theme directly, which will use the Lit context.
     if (this.config.theme) {
