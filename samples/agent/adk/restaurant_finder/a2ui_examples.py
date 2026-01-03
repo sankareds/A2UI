@@ -132,7 +132,7 @@ RESTAURANT_UI_EXAMPLES = """
       {{ "id": "restaurant-address", "component": {{ "Text": {{ "text": {{ "path": "address" }} }} }} }},
       {{ "id": "party-size-field", "component": {{ "TextField": {{ "label": {{ "literalString": "Party Size" }}, "text": {{ "path": "partySize" }}, "type": "number" }} }} }},
       {{ "id": "datetime-field", "component": {{ "DateTimeInput": {{ "label": {{ "literalString": "Date & Time" }}, "value": {{ "path": "reservationTime" }}, "enableDate": true, "enableTime": true }} }} }},
-      {{ "id": "dietary-field", "component": {{ "TextField": {{ "label": {{ "literalString": "Dietary Requirements" }}, "text": {{ "path": "dietary" }} }} }} }},
+      {{ "id": "dietary-field", "component": {{ "TextField": {{ "validationRegexp": "/.+/", "label": {{ "literalString": "Dietary Requirements" }}, "text": {{ "path": "dietary" }} }} }} }},
       {{ "id": "submit-button", "component": {{ "Button": {{ "child": "submit-reservation-text", "action": {{ "name": "submit_booking", "context": [ {{ "key": "restaurantName", "value": {{ "path": "restaurantName" }} }}, {{ "key": "partySize", "value": {{ "path": "partySize" }} }}, {{ "key": "reservationTime", "value": {{ "path": "reservationTime" }} }}, {{ "key": "dietary", "value": {{ "path": "dietary" }} }}, {{ "key": "imageUrl", "value": {{ "path": "imageUrl" }} }} ] }} }} }} }},
       {{ "id": "submit-reservation-text", "component": {{ "Text": {{ "text": {{ "literalString": "Submit Reservation" }} }} }} }}
     ]
@@ -144,9 +144,9 @@ RESTAURANT_UI_EXAMPLES = """
       {{ "key": "title", "valueString": "Book a Table at [RestaurantName]" }},
       {{ "key": "address", "valueString": "[Restaurant Address]" }},
       {{ "key": "restaurantName", "valueString": "[RestaurantName]" }},
-      {{ "key": "partySize", "valueString": "2" }},
+      {{ "key": "partySize", "valueString": "2", "validationRegexp": "/.+/" }},
       {{ "key": "reservationTime", "valueString": "" }},
-      {{ "key": "dietary", "valueString": "" }},
+      {{ "key": "dietary", "valueString": "", "validationRegexp": "/.+/" }},
       {{ "key": "imageUrl", "valueString": "" }}
     ]
   }} }}

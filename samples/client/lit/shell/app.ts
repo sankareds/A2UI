@@ -23,6 +23,7 @@ import {
   nothing,
   HTMLTemplateResult,
   unsafeCSS,
+  PropertyValues,
 } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { theme as uiTheme } from "./theme/default-theme.js";
@@ -119,22 +120,35 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         width: 100vw;
         height: 100vh;
         color: light-dark(var(--n-10), var(--n-90));
-        font-family: var(--font-family);
+        font-family: "Roboto", sans-serif;
         overflow: hidden;
-        background: light-dark(var(--n-0), var(--n-100));
+        background: light-dark(var(--n-100), var(--n-0));
+        color-scheme: light dark;
+        
+        --sidebar-width: 280px;
+        --sidebar-bg: light-dark(var(--n-95), var(--n-5));
+        --sidebar-border: light-dark(var(--n-80), var(--n-20));
+        --chat-bg: light-dark(var(--n-100), var(--n-0));
+        --user-msg-bg: var(--p-90);
+        --user-msg-text: var(--n-10);
+        --agent-msg-bg: light-dark(var(--n-90), var(--n-10));
+        --agent-msg-text: light-dark(var(--n-10), var(--n-90));
       }
 
       .sidebar {
-        width: 260px;
-        background: light-dark(var(--n-5), var(--n-95));
-        border-right: 1px solid var(--n-80);
+        width: var(--sidebar-width);
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--sidebar-border);
         display: flex;
         flex-direction: column;
         flex-shrink: 0;
+        transition: background 0.3s, border-color 0.3s;
+        z-index: 2;
       }
 
       .sidebar-header {
-        padding: 16px;
+        padding: 20px;
+        border-bottom: 1px solid var(--sidebar-border);
       }
 
       .new-chat-btn {
@@ -143,45 +157,57 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         align-items: center;
         justify-content: center;
         gap: 8px;
-        padding: 10px;
+        padding: 12px;
         background: var(--p-40);
         color: var(--n-100);
         border: none;
-        border-radius: 8px;
+        border-radius: 24px;
         cursor: pointer;
-        font-weight: 500;
+        font-weight: 600;
+        font-size: 14px;
+        transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
       
       .new-chat-btn:hover {
         opacity: 0.9;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      }
+
+      .new-chat-btn:active {
+        transform: scale(0.98);
       }
 
       .conversation-list {
         flex: 1;
         overflow-y: auto;
-        padding: 0 8px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
 
       .conversation-item {
-        padding: 12px;
-        margin-bottom: 4px;
-        border-radius: 8px;
+        padding: 12px 16px;
+        border-radius: 12px;
         cursor: pointer;
         color: light-dark(var(--n-30), var(--n-80));
-        transition: background 0.2s;
+        transition: background 0.2s, color 0.2s;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        font-size: 14px;
       }
 
       .conversation-item:hover {
-        background: light-dark(var(--n-10), var(--n-90));
+        background: light-dark(var(--n-90), var(--n-10));
+        color: light-dark(var(--n-10), var(--n-90));
       }
 
       .conversation-item.active {
-        background: light-dark(var(--n-15), var(--n-85));
-        color: light-dark(var(--n-10), var(--n-90));
-        font-weight: 500;
+        background: light-dark(var(--n-85), var(--n-15));
+        color: light-dark(var(--n-0), var(--n-100));
+        font-weight: 600;
       }
 
       .main-container {
@@ -191,27 +217,30 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         height: 100%;
         position: relative;
         overflow: hidden;
+        background: var(--chat-bg);
       }
 
       .content-area {
         flex: 1;
         overflow-y: auto;
-        padding: var(--bb-grid-size-3);
+        padding: 24px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 24px;
         max-width: 900px;
         width: 100%;
         margin: 0 auto;
+        scroll-behavior: smooth;
       }
 
       .input-area {
-        padding: 16px;
-        background: light-dark(var(--n-0), var(--n-100));
-        border-top: 1px solid var(--n-80);
+        padding: 24px;
+        background: var(--chat-bg);
         width: 100%;
         max-width: 900px;
         margin: 0 auto;
+        position: relative;
+        z-index: 10;
       }
 
       #hero-img {
@@ -229,17 +258,16 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       #surfaces {
         width: 100%;
         max-width: 100svw;
-        /* padding: var(--bb-grid-size-3); */ /* Padding moved to content-area */
+        padding: var(--bb-grid-size-3);
         animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 0.3s backwards;
       }
 
       form {
         display: flex;
         flex-direction: column;
-        /* flex: 1; */ /* Form is no longer flex: 1 */
         gap: 16px;
         align-items: center;
-        /* padding: 16px 0; */ /* Padding handled by input-area */
+        width: 100%;
         animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 1s backwards;
 
         & h1 {
@@ -249,33 +277,51 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         & > div {
           display: flex;
           flex: 1;
-          gap: 16px;
+          gap: 12px;
           align-items: center;
           width: 100%;
+          background: light-dark(var(--n-95), var(--n-5));
+          padding: 8px;
+          border-radius: 32px;
+          border: 1px solid var(--sidebar-border);
+          transition: border-color 0.2s, box-shadow 0.2s;
+
+          &:focus-within {
+             border-color: var(--p-40);
+             box-shadow: 0 0 0 2px var(--p-90);
+          }
 
           & > input {
             display: block;
             flex: 1;
-            border-radius: 32px;
-            padding: 16px 24px;
-            border: 1px solid var(--p-60);
-            background: light-dark(var(--n-100), var(--n-10));
+            border: none;
+            background: transparent;
+            padding: 12px 16px;
             font-size: 16px;
+            color: light-dark(var(--n-10), var(--n-90));
+            outline: none;
           }
 
           & > button {
             display: flex;
             align-items: center;
+            justify-content: center;
             background: var(--p-40);
             color: var(--n-100);
             border: none;
-            padding: 8px 16px;
-            border-radius: 32px;
-            opacity: 0.5;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: opacity 0.2s;
 
-            &:not([disabled]) {
-              cursor: pointer;
-              opacity: 1;
+            &:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
+            
+            &:not(:disabled):hover {
+               opacity: 0.9;
             }
           }
         }
@@ -298,22 +344,30 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
       .user-message {
         align-self: flex-end;
-        background: var(--p-90);
-        color: var(--n-10);
-        padding: 12px 16px;
-        border-radius: 16px 16px 0 16px;
+        background: var(--user-msg-bg);
+        color: var(--user-msg-text);
+        padding: 14px 20px;
+        border-radius: 20px 20px 4px 20px;
         max-width: 80%;
         word-break: break-word;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        line-height: 1.5;
       }
 
       .agent-message {
         align-self: flex-start;
-        background: light-dark(var(--n-90), var(--n-20));
-        color: light-dark(var(--n-10), var(--n-90));
-        padding: 12px 16px;
-        border-radius: 16px 16px 16px 0;
-        max-width: 80%;
+        background: var(--agent-msg-bg);
+        color: var(--agent-msg-text);
+        padding: 14px 20px;
+        border-radius: 20px 20px 20px 4px;
+        max-width: 85%;
         word-break: break-word;
+        line-height: 1.5;
+      }
+      
+      .agent-message a2ui-surface {
+         display: block;
+         margin-top: 8px;
       }
 
       .spinner {
@@ -342,6 +396,8 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         width: 48px;
         height: 48px;
         font-size: 32px;
+        z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 
         & .g-icon {
           pointer-events: none;
@@ -425,8 +481,70 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     return html`<div class="error">${this.#error}</div>`;
   }
 
+  #setTheme(theme: "dark" | "light") {
+    const body = document.body;
+    if (theme === "dark") {
+      body.classList.remove("light");
+      body.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    } else {
+      body.classList.remove("dark");
+      body.classList.add("light");
+      document.documentElement.style.colorScheme = "light";
+    }
+  }
+
+  #saveState() {
+    const stateToSave = {
+      conversations: this.#conversations.map((c) => ({
+        ...c,
+        history: c.history.map((h) => {
+          // Create a copy without non-serializable fields
+          const { processor, surfaces, ...rest } = h;
+          return rest;
+        }),
+      })),
+      activeConversationId: this.#activeConversationId,
+    };
+    localStorage.setItem("a2ui_shell_state", JSON.stringify(stateToSave));
+  }
+
+  #loadState() {
+    const stored = localStorage.getItem("a2ui_shell_state");
+    if (!stored) return;
+
+    try {
+      const state = JSON.parse(stored);
+      if (state.conversations) {
+        this.#conversations = state.conversations.map((c: Conversation) => ({
+          ...c,
+          history: c.history.map((h: HistoryItem) => {
+            if (h.role === "agent" && h.messages) {
+              // Rehydrate
+              const processor = v0_8.Data.createSignalA2uiMessageProcessor();
+              processor.processMessages(h.messages);
+              const surfaces = processor.getSurfaces();
+              return { ...h, processor, surfaces };
+            }
+            return h;
+          }),
+        }));
+      }
+      if (state.activeConversationId) {
+        this.#activeConversationId = state.activeConversationId;
+      }
+    } catch (e) {
+      console.error("Failed to load state", e);
+    }
+  }
+
   connectedCallback() {
     super.connectedCallback();
+
+    this.#loadState();
+
+    // Set default theme to dark
+    this.#setTheme("dark");
 
     // Load config from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -446,6 +564,43 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
     // Initialize client with configured URL
     this.#a2uiClient = new A2UIClient(this.config.serverUrl);
+  }
+
+  updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+
+    let shouldScroll = false;
+    let shouldSave = false;
+    changedProperties.forEach((_, key) => {
+      const keyStr = String(key);
+      // We ignore loadingTextIndex changes to avoid auto-scrolling during loading animation
+      if (!keyStr.includes("loadingTextIndex")) {
+        shouldScroll = true;
+      }
+      if (
+        !keyStr.includes("loadingTextIndex") &&
+        !keyStr.includes("requesting")
+      ) {
+        shouldSave = true;
+      }
+    });
+
+    if (shouldScroll) {
+      this.#scrollToBottom();
+    }
+
+    if (shouldSave) {
+      this.#saveState();
+    }
+  }
+
+  #scrollToBottom() {
+    const contentArea = this.shadowRoot?.querySelector(".content-area");
+    if (contentArea) {
+      setTimeout(() => {
+        contentArea.scrollTop = contentArea.scrollHeight;
+      }, 0);
+    }
   }
 
   render() {
@@ -506,18 +661,12 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   #renderThemeToggle() {
     return html` <div>
       <button
-        @click=${(evt: Event) => {
-        if (!(evt.target instanceof HTMLButtonElement)) return;
-        const { colorScheme } = window.getComputedStyle(evt.target);
-        if (colorScheme === "dark") {
-          document.body.classList.add("light");
-          document.body.classList.remove("dark");
-        } else {
-          document.body.classList.add("dark");
-          document.body.classList.remove("light");
-        }
-      }}
+        @click=${() => {
+          const isDark = document.body.classList.contains("dark");
+          this.#setTheme(isDark ? "light" : "dark");
+        }}
         class="theme-toggle"
+        title="Toggle Theme"
       >
         <span class="g-icon filled-heavy"></span>
       </button>
