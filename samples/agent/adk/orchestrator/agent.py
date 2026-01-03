@@ -18,6 +18,7 @@ import os
 from typing import List, Any
 from a2a.client import A2ACardResolver
 from a2a.extensions.common import HTTP_EXTENSION_HEADER
+from google.adk.models import Gemini
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent, DEFAULT_TIMEOUT
@@ -171,9 +172,9 @@ class OrchestratorAgent:
                 
                 logger.info(f'Created remote agent with description: {description}')
 
-        LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gemini/gemini-2.5-flash")
+        LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gemini/gemini-3.5-flash")
         return LlmAgent(
-            model=LiteLlm(model=LITELLM_MODEL),
+            model=Gemini(model='gemini-3-flash-preview'),
             name="orchestrator_agent",
             description="An agent that orchestrates requests to multiple other agents",
             instruction="You are an orchestrator agent. Your sole responsibility is to analyze the incoming user request, determine the user's intent, and route the task to exactly one of your expert subagents",

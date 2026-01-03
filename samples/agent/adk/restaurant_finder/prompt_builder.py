@@ -816,6 +816,7 @@ def get_ui_prompt(base_url: str, examples: str) -> str:
     -   If the number of restaurants is 5 or fewer, you MUST use the `SINGLE_COLUMN_LIST_EXAMPLE` template.
     -   If the number of restaurants is more than 5, you MUST use the `TWO_COLUMN_LIST_EXAMPLE` template.
     -   If the query is to book a restaurant (e.g., "USER_WANTS_TO_BOOK..."), you MUST use the `BOOKING_FORM_EXAMPLE` template.
+    -   If the query is to book a restaurant (e.g., "USER_WANTS_TO_BOOK..."), you MUST pass validationRegexp given in the `BOOKING_FORM_EXAMPLE` template.
     -   If the query is a booking submission (e.g., "User submitted a booking..."), you MUST use the `CONFIRMATION_EXAMPLE` template.
 
     {formatted_examples}

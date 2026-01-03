@@ -108,7 +108,7 @@ class RestaurantAgentExecutor(AgentExecutor):
                 dietary_reqs = ctx.get("dietary", "None")
                 image_url = ctx.get("imageUrl", "")
                 if reservation_time == "Unknown Time":
-                    query = f"User submitted a booking for {restaurant_name} for {party_size} people without reservation time, so respond to the user that the reservation time is mandatory with the error label next to the field.The image URL is {image_url}"
+                    query = f"VALIDATION_ERROR: User submitted a booking for {restaurant_name} for {party_size} people without reservation time, so respond to the user that the reservation time is mandatory with the error label next to the field.The image URL is {image_url}"
                 else:
                     query = f"User submitted a booking for {restaurant_name} for {party_size} people at {reservation_time} with dietary requirements: {dietary_reqs}. The image URL is {image_url}"
                 logger.info(f"--- Submit Booking: '{query}' ---")
