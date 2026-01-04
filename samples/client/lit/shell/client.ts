@@ -39,22 +39,22 @@ export class A2UIClient {
       const baseUrl = this.#serverUrl || "http://localhost:10005";
 
       this.#client = await A2AClient.fromCardUrl(
-          `${baseUrl}/.well-known/agent-card.json`,
-          {
-            fetchImpl: async (url, init) => {
-              const headers = new Headers(init?.headers);
-              headers.set("X-A2A-Extensions", "https://a2ui.org/a2a-extension/a2ui/v0.8");
-              return fetch(url, { ...init, headers });
-            }
+        `${baseUrl}/.well-known/agent-card.json`,
+        {
+          fetchImpl: async (url, init) => {
+            const headers = new Headers(init?.headers);
+            headers.set("X-A2A-Extensions", "https://a2ui.org/a2a-extension/a2ui/v0.8");
+            return fetch(url, { ...init, headers });
           }
+        }
       );
     }
     return this.#client;
   }
 
   async send(
-      message: v0_8.Types.A2UIClientEventMessage | string
-  ): Promise<v0_8.Types.ServerToClientMessage[]> {
+    message: v0_8.Types.A2UIClientEventMessage | string
+  ): Promise<{ messages: v0_8.Types.ServerToClientMessage[], ui_response: boolean }> {
     const client = await this.#getClient();
 
     let parts: Part[] = [];
@@ -114,9 +114,8 @@ export class A2UIClient {
       }
     }
 
+    let ui_response = false;
     if (responseParts) {
-
-      let ui_response = false;
       for (const part of responseParts) {
         if (part.kind === 'data') {
           messages.push(part.data as v0_8.Types.ServerToClientMessage);
@@ -127,14 +126,14 @@ export class A2UIClient {
       for (const part of responseParts) {
         if (part.kind === 'text' && !ui_response) {
           messages.push({
-          beginRendering: {
-            surfaceId: "default",
-            root: "root-column",
-            styles: {
-              primaryColor: "#FF0000",
-              font: "Roboto"
+            beginRendering: {
+              surfaceId: "default",
+              root: "root-column",
+              styles: {
+                primaryColor: "#FF0000",
+                font: "Roboto"
+              }
             }
-          }
           });
           messages.push({
             surfaceUpdate: {
@@ -238,6 +237,6 @@ export class A2UIClient {
       }
     }
 
-    return messages;
+    return { messages, ui_response };
   }
 }

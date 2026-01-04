@@ -63,6 +63,8 @@ interface HistoryItem {
   surfaces?: Map<string, any> | ReadonlyMap<string, any>;
   messages?: v0_8.Types.ServerToClientMessage[];
   allTextResponses?: string[];
+  isUIResponse?: boolean;
+  origin?: "chat" | "canvas";
 }
 
 interface Conversation {
@@ -70,6 +72,13 @@ interface Conversation {
   title: string;
   history: HistoryItem[];
   timestamp: number;
+  processor?: any;
+  client?: A2UIClient;
+  canvasId: string;
+  canvasVersion: number;
+  latestSurface?: any;
+  latestSurfaceId?: string;
+  uiMessages: v0_8.Types.ServerToClientMessage[];
 }
 
 @customElement("a2ui-shell")
@@ -87,17 +96,33 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   accessor #lastMessages: v0_8.Types.ServerToClientMessage[] = [];
 
   @state()
-  accessor config: AppConfig = configs.restaurant;
-
-  @state()
   accessor #loadingTextIndex = 0;
   #loadingInterval: number | undefined;
+
+  @state()
+  accessor config: AppConfig = configs.restaurant;
 
   @state()
   accessor #conversations: Conversation[] = [];
 
   @state()
   accessor #activeConversationId: string | null = null;
+
+  @state()
+  accessor #isCanvasOpen = false;
+
+  @state()
+  accessor #isFocused = false;
+
+  get #latestUIItem(): HistoryItem | null {
+    const history = this.#activeHistory;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].isUIResponse && history[i].surfaces) {
+        return history[i];
+      }
+    }
+    return null;
+  }
 
   get #activeHistory(): HistoryItem[] {
     if (!this.#activeConversationId) return [];
@@ -232,6 +257,126 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         position: relative;
         overflow: hidden;
         background: var(--chat-bg);
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .main-container.focused {
+        max-width: 0;
+        opacity: 0;
+        pointer-events: none;
+        padding: 0;
+      }
+
+      .canvas-panel {
+        width: 0;
+        height: 100%;
+        background: light-dark(#ffffff, #0f172a);
+        border-left: 1px solid var(--sidebar-border);
+        display: flex;
+        flex-direction: column;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        overflow: hidden;
+        opacity: 0;
+      }
+
+      .canvas-panel.open {
+        width: 60%;
+        opacity: 1;
+      }
+
+      .canvas-panel.focused {
+        width: 100%;
+      }
+
+      .canvas-header {
+        height: var(--header-height);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--sidebar-border);
+      }
+
+      .canvas-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 40px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .canvas-surface-wrapper {
+        width: 100%;
+        max-width: 800px;
+        background: light-dark(#f8fafc, #1e293b);
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+        height: fit-content;
+      }
+
+      .ui-artifact-btn {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        background: light-dark(rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.2));
+        border: 1px solid light-dark(rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.4));
+        border-radius: 12px;
+        color: var(--accent-blue);
+        cursor: pointer;
+        font-weight: 600;
+        margin-top: 12px;
+        transition: all 0.2s ease;
+        width: fit-content;
+      }
+
+      .ui-artifact-btn:hover {
+        background: light-dark(rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.25));
+        transform: translateY(-1px);
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .focus-mode-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        border: none;
+        background: transparent;
+        color: light-dark(var(--n-40), var(--n-70));
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      }
+
+      .focus-mode-btn:hover {
+        background: light-dark(rgba(0,0,0,0.05), rgba(255,255,255,0.1));
+        color: var(--accent-blue);
+      }
+
+      .close-canvas-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        color: light-dark(var(--n-40), var(--n-70));
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .close-canvas-btn:hover {
+        background: light-dark(rgba(0,0,0,0.05), rgba(255,255,255,0.1));
+        color: #ef4444;
       }
 
       .header {
@@ -291,13 +436,6 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         margin: 40px auto;
         background: var(--background-image-light) center center / contain
           no-repeat;
-      }
-
-      #surfaces {
-        width: 100%;
-        max-width: 100svw;
-        padding: var(--bb-grid-size-3);
-        animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 0.3s backwards;
       }
 
       form {
@@ -510,40 +648,22 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       }
 
       @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+        to { transform: rotate(360deg); }
       }
 
       @keyframes slideInRight {
-        from {
-          opacity: 0;
-          transform: translateX(20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
       }
 
       @keyframes slideInLeft {
-        from {
-          opacity: 0;
-          transform: translateX(-20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
+        from { opacity: 0; transform: translateX(-20px); }
+        to { opacity: 1; transform: translateX(0); }
       }
 
       @keyframes fadeIn {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
 
       .error {
@@ -555,21 +675,9 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         margin: 0 24px;
         font-size: 14px;
       }
-
-
-      @keyframes rotate {
-        from {
-          rotate: 0deg;
-        }
-
-        to {
-          rotate: 360deg;
-        }
-      }
     `,
   ];
 
-  // #processor = v0_8.Data.createSignalA2uiMessageProcessor();
   #a2uiClient = new A2UIClient();
   #snackbar: Snackbar | undefined = undefined;
   #pendingSnackbarMessages: Array<{
@@ -579,7 +687,6 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
   #maybeRenderError() {
     if (!this.#error) return nothing;
-
     return html`<div class="error">${this.#error}</div>`;
   }
 
@@ -591,22 +698,19 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       body.classList.remove("light");
       body.classList.add("dark");
       root.style.colorScheme = "dark";
-      root.style.setProperty("--card-bg", "#1e293b", "important"); // Darker slate for better contrast
+      root.style.setProperty("--card-bg", "#1e293b", "important");
       root.style.setProperty("--card-border", "rgba(255,255,255,0.05)", "important");
-      // Override inverse background colors (color-bgc-n100 uses --n-0 in dark mode)
-      root.style.setProperty("--n-0", "#1e293b", "important"); // Dark background (inverse of n-100, used in dark mode)
-      root.style.setProperty("--n-100", "#f8fafc", "important"); // Light background (inverse of n-0, used in light mode)
-      // Override inverse text colors for dark mode (these are used by light-dark() in dark mode)
-      root.style.setProperty("--n-90", "#e2e8f0", "important"); // Light text (inverse of n-10, used in dark mode)
-      root.style.setProperty("--n-70", "#cbd5e1", "important"); // Medium light text (inverse of n-30, used in dark mode)
-      root.style.setProperty("--p-70", "#94a3b8", "important"); // Primary light text (inverse of p-30, used in dark mode)
+      root.style.setProperty("--n-0", "#1e293b", "important");
+      root.style.setProperty("--n-100", "#f8fafc", "important");
+      root.style.setProperty("--n-90", "#e2e8f0", "important");
+      root.style.setProperty("--n-70", "#cbd5e1", "important");
+      root.style.setProperty("--p-70", "#94a3b8", "important");
     } else {
       body.classList.remove("dark");
       body.classList.add("light");
       root.style.colorScheme = "light";
       root.style.setProperty("--card-bg", "#f8fafc");
       root.style.setProperty("--card-border", "rgba(0,0,0,0.05)");
-      // Reset to default values (remove overrides)
       root.style.removeProperty("--n-90");
       root.style.removeProperty("--n-70");
       root.style.removeProperty("--p-70");
@@ -618,12 +722,13 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       conversations: this.#conversations.map((c) => ({
         ...c,
         history: c.history.map((h) => {
-          // Create a copy without non-serializable fields
           const { processor, surfaces, ...rest } = h;
           return rest;
         }),
       })),
       activeConversationId: this.#activeConversationId,
+      isCanvasOpen: this.#isCanvasOpen,
+      isFocused: this.#isFocused,
     };
     localStorage.setItem("a2ui_shell_state", JSON.stringify(stateToSave));
   }
@@ -635,22 +740,55 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     try {
       const state = JSON.parse(stored);
       if (state.conversations) {
-        this.#conversations = state.conversations.map((c: Conversation) => ({
-          ...c,
-          history: c.history.map((h: HistoryItem) => {
+        this.#conversations = (state.conversations as Conversation[]).map((c) => {
+          const processor = v0_8.Data.createSignalA2uiMessageProcessor();
+          const uiMessages: v0_8.Types.ServerToClientMessage[] = [];
+
+          if (c.history) {
+            for (const h of c.history) {
+              if (h.role === "agent" && h.messages) {
+                processor.processMessages(h.messages);
+                uiMessages.push(...h.messages);
+              }
+            }
+          }
+
+          const surfaces = processor.getSurfaces();
+          const surfaceMap = Array.from(surfaces as Map<string, any>);
+          let latestSurface = undefined;
+          let latestSurfaceId = undefined;
+          if (surfaceMap.length > 0) {
+            [latestSurfaceId, latestSurface] = surfaceMap[surfaceMap.length - 1];
+          }
+
+          const history = (c.history || []).map(h => {
             if (h.role === "agent" && h.messages) {
-              // Rehydrate
-              const processor = v0_8.Data.createSignalA2uiMessageProcessor();
-              processor.processMessages(h.messages);
-              const surfaces = processor.getSurfaces();
-              return { ...h, processor, surfaces };
+              return { ...h, processor, surfaces: processor.getSurfaces() };
             }
             return h;
-          }),
-        }));
+          });
+
+          return {
+            ...c,
+            history,
+            processor,
+            uiMessages,
+            latestSurface,
+            latestSurfaceId,
+            canvasVersion: 0,
+            canvasId: c.canvasId || globalThis.crypto.randomUUID(),
+            client: new A2UIClient(this.config?.serverUrl || "http://localhost:10005")
+          };
+        });
       }
       if (state.activeConversationId) {
         this.#activeConversationId = state.activeConversationId;
+      }
+      if (state.isCanvasOpen !== undefined) {
+        this.#isCanvasOpen = state.isCanvasOpen;
+      }
+      if (state.isFocused !== undefined) {
+        this.#isFocused = state.isFocused;
       }
     } catch (e) {
       console.error("Failed to load state", e);
@@ -659,21 +797,16 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
   connectedCallback() {
     super.connectedCallback();
-
-    this.#loadState();
-
-    // Set default theme to dark
-    this.#setTheme("dark");
-
-    // Load config from URL
     const urlParams = new URLSearchParams(window.location.search);
     const appKey = urlParams.get("app") || "orchestrator";
     this.config = configs[appKey] || configs.orchestrator;
 
-    // Apply the theme directly, which will use the Lit context.
     if (this.config.theme) {
       this.theme = this.config.theme;
     }
+
+    this.#loadState();
+    this.#setTheme("dark");
 
     window.document.title = this.config.title;
     window.document.documentElement.style.setProperty(
@@ -681,7 +814,6 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       this.config.background
     );
 
-    // Initialize client with configured URL
     this.#a2uiClient = new A2UIClient(this.config.serverUrl);
   }
 
@@ -692,7 +824,6 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     let shouldSave = false;
     changedProperties.forEach((_, key) => {
       const keyStr = String(key);
-      // We ignore loadingTextIndex changes to avoid auto-scrolling during loading animation
       if (!keyStr.includes("loadingTextIndex")) {
         shouldScroll = true;
       }
@@ -743,37 +874,144 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       })}
                 @click=${() => this.#selectConversation(conv.id)}
               >
-                <span class="conversation-title"
-                  >${conv.title || "New Chat"}</span
-                >
+                <span class="conversation-title">${conv.title || "New Chat"}</span>
               </div>
             `
     )}
         </div>
       </div>
-      <div class="main-container">
+      <div class="main-container ${this.#isFocused ? 'focused' : ''}">
         <header class="header">
           <div class="header-title">${title}</div>
-          ${this.#renderThemeToggle()}
+          <div class="header-actions">
+            ${this.#renderFocusModeButton()}
+            ${this.#renderThemeToggle()}
+          </div>
         </header>
         <div class="content-area">
           ${!this.#activeConversationId || this.#activeHistory.length === 0
         ? this.#renderWelcome()
         : nothing}
-          ${this.#renderHistory()} ${this.#maybeRenderData()}
+          ${this.#renderHistory()} 
+          ${this.#maybeRenderData()}
           ${this.#maybeRenderError()}
         </div>
         <div class="input-area">${this.#renderInputForm()}</div>
       </div>
+      <div class="canvas-panel ${this.#isCanvasOpen ? 'open' : ''} ${this.#isFocused ? 'focused' : ''}">
+        ${this.#renderCanvas()}
+      </div>
     `;
   }
 
+  #renderFocusModeButton() {
+    if (!this.#isCanvasOpen || !this.#latestUIItem) return nothing;
+    return html`
+      <button class="focus-mode-btn" @click=${() => this.#isFocused = !this.#isFocused} title="Toggle Focus Mode">
+        <span class="g-icon">${this.#isFocused ? 'fullscreen_exit' : 'fullscreen'}</span>
+      </button>
+    `;
+  }
+
+  #renderCanvas() {
+    const activeConv = this.#conversations.find(c => c.id === this.#activeConversationId);
+    if (!activeConv || !activeConv.processor) return nothing;
+
+    return html`
+      <div id="canvas-container-${activeConv.canvasId}-${activeConv.canvasVersion}" class="canvas-wrapper-inner" style="height: 100%; display: flex; flex-direction: column;">
+        <div class="canvas-header">
+          <div class="header-title" style="font-size: 16px;">Live Preview</div>
+          <button class="close-canvas-btn" @click=${() => { this.#isCanvasOpen = false; this.#isFocused = false; }}>
+            <span class="g-icon">close</span>
+          </button>
+        </div>
+        <div class="canvas-content">
+          ${activeConv.latestSurfaceId && activeConv.latestSurface
+        ? html`
+              <div class="canvas-surface-wrapper" data-conv-id="${activeConv.id}">
+                <a2ui-surface
+                  @a2uiaction=${(evt: v0_8.Events.StateEvent<"a2ui.action">) => this.#handleSurfaceAction(evt, { processor: activeConv.processor } as any, activeConv.latestSurfaceId!, true)}
+                  .surfaceId=${activeConv.latestSurfaceId}
+                  .surface=${activeConv.latestSurface}
+                  .processor=${activeConv.processor}
+                ></a2ui-surface>
+              </div>`
+        : html`
+              <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--n-60); height: 100%;">
+                No UI updates found in this conversation
+              </div>`
+      }
+        </div>
+      </div>
+    `;
+  }
+
+  #renderCanvasContent(item: HistoryItem, processor: any) {
+    const surfaces = processor.getSurfaces();
+    const surfaceMap = Array.from(surfaces as Map<string, any>);
+    if (surfaceMap.length === 0) return nothing;
+
+    const [surfaceId, surface] = surfaceMap[surfaceMap.length - 1];
+    return html`
+      <a2ui-surface
+        @a2uiaction=${(evt: v0_8.Events.StateEvent<"a2ui.action">) => this.#handleSurfaceAction(evt, item, surfaceId, true)}
+        .surfaceId=${surfaceId}
+        .surface=${surface}
+        .processor=${processor}
+      ></a2ui-surface>
+    `;
+  }
+
+  async #handleSurfaceAction(evt: v0_8.Events.StateEvent<"a2ui.action">, item: HistoryItem, surfaceId: string, fromCanvas = false) {
+    const activeConv = this.#conversations.find(c => c.id === this.#activeConversationId);
+    const processor = activeConv?.processor || item.processor;
+    if (!processor) return;
+
+    const [target] = evt.composedPath();
+    if (!(target instanceof HTMLElement)) return;
+
+    const context: v0_8.Types.A2UIClientEventMessage["userAction"]["context"] = {};
+    if (evt.detail.action.context) {
+      const srcContext = evt.detail.action.context;
+      for (const ctxItem of srcContext) {
+        if (ctxItem.value.literalBoolean !== undefined) {
+          context[ctxItem.key] = ctxItem.value.literalBoolean;
+        } else if (ctxItem.value.literalNumber !== undefined) {
+          context[ctxItem.key] = ctxItem.value.literalNumber;
+        } else if (ctxItem.value.literalString !== undefined) {
+          context[ctxItem.key] = ctxItem.value.literalString;
+        } else if (ctxItem.value.path) {
+          const path = processor.resolvePath(ctxItem.value.path, evt.detail.dataContextPath);
+          context[ctxItem.key] = processor.getData(evt.detail.sourceComponent, path, surfaceId);
+        }
+      }
+    }
+
+    const message: v0_8.Types.A2UIClientEventMessage = {
+      userAction: {
+        name: evt.detail.action.name,
+        surfaceId,
+        sourceComponentId: target.id,
+        timestamp: new Date().toISOString(),
+        context,
+      },
+    };
+
+    await this.#sendAndProcessMessage(message, fromCanvas);
+  }
+
   #createNewChat() {
+    const id = globalThis.crypto.randomUUID();
     const newConv: Conversation = {
-      id: globalThis.crypto.randomUUID(),
+      id,
       title: "",
       history: [],
       timestamp: Date.now(),
+      processor: v0_8.Data.createSignalA2uiMessageProcessor(),
+      canvasId: globalThis.crypto.randomUUID(),
+      canvasVersion: 0,
+      uiMessages: [],
+      client: new A2UIClient(this.config.serverUrl)
     };
     this.#conversations = [newConv, ...this.#conversations];
     this.#activeConversationId = newConv.id;
@@ -781,6 +1019,9 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
   #selectConversation(id: string) {
     this.#activeConversationId = id;
+    this.#conversations = this.#conversations.map(c =>
+      c.id === id ? { ...c, canvasVersion: (c.canvasVersion || 0) + 1 } : c
+    );
   }
 
   #renderThemeToggle() {
@@ -804,8 +1045,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         ? html`<div
               style=${styleMap({
           "--background-image-light": `url(${this.config.heroImage})`,
-          "--background-image-dark": `url(${this.config.heroImageDark ?? this.config.heroImage
-            })`,
+          "--background-image-dark": `url(${this.config.heroImageDark ?? this.config.heroImage})`,
         })}
               id="hero-img"
             ></div>`
@@ -821,9 +1061,13 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   }
 
   #renderHistory() {
+    const activeConv = this.#conversations.find(c => c.id === this.#activeConversationId);
     return html`
       ${this.#activeHistory.map((item) => {
-      const hasSurface = !!(item.surfaces && item.processor);
+      if (item.origin === "canvas" && item.isUIResponse) {
+        return nothing;
+      }
+      const hasSurface = !!(item.surfaces);
 
       if (item.role === "user") {
         return html`
@@ -840,68 +1084,39 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       return html`
           <div class="message-wrapper">
             <div class=${classMap({ "agent-message": true, "has-surface": hasSurface })}>
-                ${this.#renderAgentContent(item)}
+                ${this.#renderAgentContent(item, activeConv?.processor)}
             </div>
           </div>`;
     })}
     `;
   }
 
-  #renderAgentContent(item: any) {
-    if (item.surfaces && item.processor) {
+  #renderAgentContent(item: HistoryItem, processor?: any) {
+    if (item.isUIResponse && item.surfaces) {
+      const isFromCanvas = item.origin === "canvas";
+
+      return html`
+        <div class="agent-text" style="${isFromCanvas ? 'font-size: 16px; opacity: 0.8; font-style: italic;' : ''}">
+          ${item.text || (isFromCanvas ? 'Canvas updated' : 'I have generated a UI for you.')}
+        </div>
+        ${!this.#isCanvasOpen ? html`
+          <button class="ui-artifact-btn" @click=${() => this.#isCanvasOpen = true}>
+            <span class="g-icon">web_asset</span>
+            Open in Canvas
+          </button>
+        ` : nothing}
+      `;
+    }
+
+    if (item.surfaces && processor) {
       const surfaces = Array.from(item.surfaces as Map<string, any>);
       if (surfaces.length > 0) {
         const [surfaceId, surface] = surfaces[surfaces.length - 1];
         return html`<a2ui-surface
-                @a2uiaction=${async (
-          evt: v0_8.Events.StateEvent<"a2ui.action">
-        ) => {
-            const [target] = evt.composedPath();
-            if (!(target instanceof HTMLElement)) {
-              return;
-            }
-
-            const context: v0_8.Types.A2UIClientEventMessage["userAction"]["context"] =
-              {};
-            if (evt.detail.action.context) {
-              const srcContext = evt.detail.action.context;
-              for (const ctxItem of srcContext) {
-                if (ctxItem.value.literalBoolean) {
-                  context[ctxItem.key] = ctxItem.value.literalBoolean;
-                } else if (ctxItem.value.literalNumber) {
-                  context[ctxItem.key] = ctxItem.value.literalNumber;
-                } else if (ctxItem.value.literalString) {
-                  context[ctxItem.key] = ctxItem.value.literalString;
-                } else if (ctxItem.value.path) {
-                  const path = item.processor.resolvePath(
-                    ctxItem.value.path,
-                    evt.detail.dataContextPath
-                  );
-                  const value = item.processor.getData(
-                    evt.detail.sourceComponent,
-                    path,
-                    surfaceId
-                  );
-                  context[ctxItem.key] = value;
-                }
-              }
-            }
-
-            const message: v0_8.Types.A2UIClientEventMessage = {
-              userAction: {
-                name: evt.detail.action.name,
-                surfaceId,
-                sourceComponentId: target.id,
-                timestamp: new Date().toISOString(),
-                context,
-              },
-            };
-
-            await this.#sendAndProcessMessage(message);
-          }}
+                @a2uiaction=${(evt: v0_8.Events.StateEvent<"a2ui.action">) => this.#handleSurfaceAction(evt, item, surfaceId, false)}
                 .surfaceId=${surfaceId}
                 .surface=${surface}
-                .processor=${item.processor}
+                .processor=${processor}
               ></a2ui-surface>`;
       }
     }
@@ -926,13 +1141,8 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
           return;
         }
 
-        // Reset form
         evt.target.reset();
-
-        const message = body as v0_8.Types.A2UIClientEventMessage;
-
-
-        await this.#sendAndProcessMessage(message);
+        await this.#sendAndProcessMessage(body as string, false);
       }}
     >
       <div>
@@ -951,8 +1161,6 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       </div>
     </form>`;
   }
-
-  // #maybeRenderForm removed
 
   #startLoadingAnimation() {
     if (
@@ -976,25 +1184,23 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   }
 
   async #sendMessage(
-    message: v0_8.Types.A2UIClientEventMessage
-  ): Promise<v0_8.Types.ServerToClientMessage[]> {
+    request: v0_8.Types.A2UIClientEventMessage | string,
+    clientInstance?: A2UIClient
+  ): Promise<{ messages: v0_8.Types.ServerToClientMessage[], ui_response: boolean }> {
     try {
       this.#requesting = true;
       this.#startLoadingAnimation();
-      const response = this.#a2uiClient.send(message);
-      await response;
-      this.#requesting = false;
-      this.#stopLoadingAnimation();
-
+      const client = clientInstance || this.#a2uiClient;
+      if (!client) throw new Error("Client not initialized");
+      const response = await client.send(request);
       return response;
     } catch (err) {
       this.snackbar(err as string, SnackType.ERROR);
+      return { messages: [], ui_response: false };
     } finally {
       this.#requesting = false;
       this.#stopLoadingAnimation();
     }
-
-    return [];
   }
 
   #maybeRenderData() {
@@ -1013,11 +1219,10 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         <div class="loading-text">${text}</div>
       </div>`;
     }
-
     return nothing;
   }
 
-  async #sendAndProcessMessage(request) {
+  async #sendAndProcessMessage(request: any, fromCanvas = false) {
     if (!this.#activeConversationId) {
       this.#createNewChat();
     }
@@ -1028,15 +1233,9 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     let updatedHistory = conversation.history;
     let updatedTitle = conversation.title;
 
-    // Add user message to history only if it is a string
     if (typeof request === "string") {
-      const userHistoryItem: HistoryItem = {
-        role: "user",
-        text: request,
-      };
+      const userHistoryItem: HistoryItem = { role: "user", text: request };
       updatedHistory = [...conversation.history, userHistoryItem];
-
-      // Update title if first message
       if (conversation.history.length === 0) {
         updatedTitle = request;
       }
@@ -1044,56 +1243,77 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       updatedTitle = "New Conversation";
     }
 
-    // Update conversation state with user message
     this.#conversations = this.#conversations.map((c) =>
       c.id === conversationId
         ? { ...c, history: updatedHistory, title: updatedTitle }
         : c
     );
 
-    const messages = await this.#sendMessage(request);
+    const { messages, ui_response } = await this.#sendMessage(request, conversation.client);
 
-    console.log(messages);
+    // Re-fetch conversation to ensure we have the latest state for processing
+    const processingConv = this.#conversations.find((c) => c.id === conversationId);
+    if (!processingConv || !processingConv.processor) return;
 
-    const processor = v0_8.Data.createSignalA2uiMessageProcessor();
-    processor.processMessages(messages);
-    const surfaces = processor.getSurfaces();
+    processingConv.processor.processMessages(messages);
 
-    const historyItem: any = {
-      role: "agent",
-      messages
-    };
+    // Immutable update for UI messages and latest surface
+    const updatedUIMessages = ui_response
+      ? [...processingConv.uiMessages, ...messages]
+      : processingConv.uiMessages;
 
-    if (surfaces.size > 0) {
-      historyItem.processor = processor;
-      historyItem.surfaces = surfaces;
-    } else {
-      // Extract text response from dataModelUpdate if present (created by client.ts for text responses)
-      const textResponses: string[] = [];
-      for (const msg of messages) {
-        if (
-          msg.dataModelUpdate?.surfaceId === "default" &&
-          msg.dataModelUpdate.contents
-        ) {
-          for (const content of msg.dataModelUpdate.contents) {
-            if (content.key === "response" && content.valueString) {
-              textResponses.push(content.valueString);
-            }
+    const surfaces = processingConv.processor.getSurfaces();
+    const surfaceMap = Array.from(surfaces as Map<string, any>);
+    let latestSurface = processingConv.latestSurface;
+    let latestSurfaceId = processingConv.latestSurfaceId;
+    if (surfaceMap.length > 0) {
+      [latestSurfaceId, latestSurface] = surfaceMap[surfaceMap.length - 1];
+    }
+
+    // Update conversation in the state with all changes
+    this.#conversations = this.#conversations.map(c =>
+      c.id === conversationId
+        ? {
+          ...c,
+          uiMessages: updatedUIMessages,
+          latestSurface,
+          latestSurfaceId,
+          canvasVersion: (c.canvasVersion || 0) + 1
+        }
+        : c
+    );
+
+    const textResponses: string[] = [];
+    let uiTitle: string | undefined = undefined;
+
+    for (const msg of messages) {
+      if (msg.dataModelUpdate?.contents) {
+        for (const content of msg.dataModelUpdate.contents) {
+          if (content.key === "title" && content.valueString) {
+            uiTitle = content.valueString;
+          } else if (content.key === "response" && content.valueString) {
+            textResponses.push(content.valueString);
           }
         }
       }
+    }
 
-      if (textResponses.length > 0) {
-        historyItem.text = textResponses[textResponses.length - 1];
-        historyItem.allTextResponses = textResponses;
-      }
+    const historyItem: HistoryItem = {
+      role: "agent",
+      messages,
+      isUIResponse: ui_response,
+      text: uiTitle || (textResponses.length > 0 ? textResponses[textResponses.length - 1] : undefined),
+      allTextResponses: textResponses.length > 0 ? textResponses : undefined,
+      origin: fromCanvas ? "canvas" : "chat"
+    };
+
+    const currentConv = this.#conversations.find((c) => c.id === conversationId)!;
+    if (surfaces.size > 0) {
+      historyItem.processor = currentConv.processor;
+      historyItem.surfaces = surfaces;
     }
 
     if (historyItem.surfaces || historyItem.text) {
-      // Re-fetch conversation as it might have changed (though unlikely in single-threaded JS unless async happened)
-      // Actually we are in async function, but we updated state before await.
-      // We need to append to the *current* history of the conversation.
-
       this.#conversations = this.#conversations.map((c) =>
         c.id === conversationId
           ? { ...c, history: [...c.history, historyItem] }
@@ -1114,35 +1334,17 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   ) {
     if (!this.#snackbar) {
       this.#pendingSnackbarMessages.push({
-        message: {
-          id,
-          message,
-          type,
-          persistent,
-          actions,
-        },
+        message: { id, message, type, persistent, actions },
         replaceAll,
       });
       return;
     }
 
-    return this.#snackbar.show(
-      {
-        id,
-        message,
-        type,
-        persistent,
-        actions,
-      },
-      replaceAll
-    );
+    return this.#snackbar.show({ id, message, type, persistent, actions }, replaceAll);
   }
 
   unsnackbar(id?: SnackbarUUID) {
-    if (!this.#snackbar) {
-      return;
-    }
-
+    if (!this.#snackbar) return;
     this.#snackbar.hide(id);
   }
 }
