@@ -855,9 +855,17 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     let shouldSave = false;
     changedProperties.forEach((_, key) => {
       const keyStr = String(key);
-      if (!keyStr.includes("loadingTextIndex")) {
+
+      if (
+        keyStr.includes("conversations") ||
+        keyStr.includes("activeConversationId") ||
+        keyStr.includes("requesting") ||
+        keyStr.includes("error") ||
+        keyStr === "config"
+      ) {
         shouldScroll = true;
       }
+
       if (
         !keyStr.includes("loadingTextIndex") &&
         !keyStr.includes("requesting")
@@ -1401,6 +1409,10 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       canvases,
       agentResponse
     };
+
+    if (ui_response && typeof request === "string") {
+      this.#activeQueryId = query.id;
+    }
 
     const updatedQueries = [...processingConv.queries];
     updatedQueries[queryIndex] = updatedQuery;
