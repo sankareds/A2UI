@@ -893,8 +893,20 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
           const oldConv = oldConversations?.find(c => c.id === this.#activeConversationId);
 
           if (newConv) {
-             if (!oldConv || newConv.queries.length > oldConv.queries.length) {
+             if (!oldConv) {
                 shouldScroll = true;
+             } else if (newConv.queries.length > oldConv.queries.length) {
+                shouldScroll = true;
+             } else {
+                // Check if the last query has been updated with an agent response
+                const lastNewQuery = newConv.queries[newConv.queries.length - 1];
+                const lastOldQuery = oldConv.queries[oldConv.queries.length - 1];
+
+                if (lastNewQuery && lastOldQuery && lastNewQuery.id === lastOldQuery.id) {
+                   if (lastNewQuery.agentResponse && !lastOldQuery.agentResponse) {
+                      shouldScroll = true;
+                   }
+                }
              }
           }
        }
@@ -1212,7 +1224,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
 
     if (item.text) {
-      return html`<div>${unsafeHTML(marked.parse(item.text))}</div>`;
+      return html`<div>${unsafeHTML(marked.parse(item.text) as string)}</div>`;
     }
 
     return nothing;
