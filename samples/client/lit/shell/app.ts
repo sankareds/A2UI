@@ -49,6 +49,8 @@ import { config as contactsConfig } from "./configs/contacts.js";
 import { config as orchestratorConfig } from "./configs/orchestrator.js";
 import { styleMap } from "lit/directives/style-map.js";
 import { classMap } from "lit/directives/class-map.js";
+import { unsafeHTML } from "lit/directives/unsafe-html.js";
+import { marked } from "marked";
 
 const configs: Record<string, AppConfig> = {
   orchestrator: orchestratorConfig,
@@ -544,8 +546,11 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       }
 
       .pending {
-        width: 100%;
-        min-height: 100px;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 100;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -554,6 +559,11 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         gap: 16px;
         color: light-dark(var(--n-40), var(--n-60));
         font-size: 14px;
+        background: light-dark(rgba(255, 255, 255, 0.8), rgba(15, 23, 42, 0.8));
+        padding: 24px;
+        border-radius: 16px;
+        backdrop-filter: blur(4px);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
       }
 
       .message-wrapper {
@@ -853,17 +863,20 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
     let shouldScroll = false;
     let shouldSave = false;
-    changedProperties.forEach((_, key) => {
+
+    let oldConversations: Conversation[] | undefined;
+    let conversationsChanged = false;
+
+    changedProperties.forEach((oldValue, key) => {
       const keyStr = String(key);
 
-      if (
-        keyStr.includes("conversations") ||
-        keyStr.includes("activeConversationId") ||
-        keyStr.includes("requesting") ||
-        keyStr.includes("error") ||
-        keyStr === "config"
-      ) {
+      if (keyStr.includes("activeConversationId")) {
         shouldScroll = true;
+      }
+
+      if (keyStr.includes("conversations")) {
+        conversationsChanged = true;
+        oldConversations = oldValue as Conversation[];
       }
 
       if (
@@ -873,6 +886,19 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         shouldSave = true;
       }
     });
+
+    if (!shouldScroll && conversationsChanged) {
+       if (this.#activeConversationId) {
+          const newConv = this.#conversations.find(c => c.id === this.#activeConversationId);
+          const oldConv = oldConversations?.find(c => c.id === this.#activeConversationId);
+
+          if (newConv) {
+             if (!oldConv || newConv.queries.length > oldConv.queries.length) {
+                shouldScroll = true;
+             }
+          }
+       }
+    }
 
     if (shouldScroll) {
       this.#scrollToBottom();
@@ -932,9 +958,9 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         ? this.#renderWelcome()
         : nothing}
           ${this.#renderHistory()} 
-          ${this.#maybeRenderData()}
           ${this.#maybeRenderError()}
         </div>
+        ${this.#maybeRenderData()}
         <div class="input-area">${this.#renderInputForm()}</div>
       </div>
       <div class="canvas-panel ${this.#isCanvasOpen ? 'open' : ''} ${this.#isFocused ? 'focused' : ''}">
@@ -1184,8 +1210,9 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       }
     }
 
+
     if (item.text) {
-      return html`<div>${item.text}</div>`;
+      return html`<div>${unsafeHTML(marked.parse(item.text))}</div>`;
     }
 
     return nothing;
