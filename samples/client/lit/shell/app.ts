@@ -120,19 +120,20 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         width: 100vw;
         height: 100vh;
         color: light-dark(var(--n-10), var(--n-90));
-        font-family: "Roboto", sans-serif;
+        font-family: "Outfit", sans-serif;
         overflow: hidden;
         background: light-dark(var(--n-100), var(--n-0));
         color-scheme: var(--color-scheme, light dark);
         
-        --sidebar-width: 280px;
-        --sidebar-bg: light-dark(var(--n-95), var(--n-5));
-        --sidebar-border: light-dark(var(--n-80), var(--n-20));
-        --chat-bg: light-dark(var(--n-100), var(--n-0));
-        --user-msg-bg: var(--p-90);
-        --user-msg-text: var(--n-10);
-        --agent-msg-bg: light-dark(var(--n-90), var(--n-10));
+        --sidebar-width: 300px;
+        --sidebar-bg: light-dark(rgba(245, 247, 250, 0.8), rgba(15, 23, 42, 0.8));
+        --sidebar-border: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.1));
+        --chat-bg: transparent;
+        --user-msg-bg: var(--p-40);
+        --user-msg-text: var(--n-100);
+        --agent-msg-bg: light-dark(var(--n-95), var(--n-10));
         --agent-msg-text: light-dark(var(--n-10), var(--n-90));
+        --header-height: 64px;
       }
 
       .sidebar {
@@ -142,13 +143,13 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         display: flex;
         flex-direction: column;
         flex-shrink: 0;
-        transition: background 0.3s, border-color 0.3s;
-        z-index: 2;
+        backdrop-filter: blur(20px);
+        transition: transform 0.3s ease;
+        z-index: 20;
       }
 
       .sidebar-header {
-        padding: 20px;
-        border-bottom: 1px solid var(--sidebar-border);
+        padding: 32px 24px;
       }
 
       .new-chat-btn {
@@ -156,22 +157,23 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        padding: 12px;
+        gap: 12px;
+        padding: 14px;
         background: var(--p-40);
         color: var(--n-100);
         border: none;
-        border-radius: 24px;
+        border-radius: 16px;
         cursor: pointer;
         font-weight: 600;
-        font-size: 14px;
-        transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        font-size: 15px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(81, 84, 179, 0.25);
       }
       
       .new-chat-btn:hover {
-        opacity: 0.9;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        background: var(--p-35);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(81, 84, 179, 0.35);
       }
 
       .new-chat-btn:active {
@@ -181,33 +183,40 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       .conversation-list {
         flex: 1;
         overflow-y: auto;
-        padding: 12px;
+        padding: 8px 16px;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 8px;
+        scrollbar-width: none;
+      }
+
+      .conversation-list::-webkit-scrollbar {
+        display: none;
       }
 
       .conversation-item {
-        padding: 12px 16px;
+        padding: 14px 16px;
         border-radius: 12px;
         cursor: pointer;
-        color: light-dark(var(--n-30), var(--n-80));
-        transition: background 0.2s, color 0.2s;
+        color: light-dark(var(--n-40), var(--n-70));
+        transition: all 0.2s ease;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         font-size: 14px;
+        border: 1px solid transparent;
       }
 
       .conversation-item:hover {
-        background: light-dark(var(--n-90), var(--n-10));
+        background: light-dark(rgba(0, 0, 0, 0.03), rgba(255, 255, 255, 0.03));
         color: light-dark(var(--n-10), var(--n-90));
       }
 
       .conversation-item.active {
-        background: light-dark(var(--n-85), var(--n-15));
-        color: light-dark(var(--n-0), var(--n-100));
+        background: light-dark(rgba(81, 84, 179, 0.08), rgba(81, 84, 179, 0.15));
+        color: var(--p-40);
         font-weight: 600;
+        border-color: light-dark(rgba(81, 84, 179, 0.1), rgba(81, 84, 179, 0.2));
       }
 
       .main-container {
@@ -220,14 +229,34 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         background: var(--chat-bg);
       }
 
+      .header {
+        height: var(--header-height);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        border-bottom: 1px solid var(--sidebar-border);
+        background: light-dark(rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.05));
+        backdrop-filter: blur(10px);
+        z-index: 15;
+      }
+
+      .header-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: light-dark(var(--n-20), var(--n-80));
+        letter-spacing: -0.02em;
+      }
+
       .content-area {
         flex: 1;
         overflow-y: auto;
-        padding: 24px;
+        padding: 40px 0;
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 32px;
         width: 100%;
+        max-width: 900px;
         margin: 0 auto;
         scroll-behavior: smooth;
         scrollbar-width: none;
@@ -238,9 +267,10 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       }
 
       .input-area {
-        padding: 24px;
-        background: var(--chat-bg);
+        padding: 24px 0 48px;
+        background: transparent;
         width: 100%;
+        max-width: 800px;
         margin: 0 auto;
         position: relative;
         z-index: 10;
@@ -248,12 +278,12 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
       #hero-img {
         width: 100%;
-        max-width: 400px;
-        aspect-ratio: 1280/720;
+        max-width: 320px;
+        aspect-ratio: 1;
         height: auto;
-        margin-bottom: var(--bb-grid-size-6);
+        margin-bottom: 32px;
         display: block;
-        margin: 0 auto;
+        margin: 40px auto;
         background: var(--background-image-light) center center / contain
           no-repeat;
       }
@@ -271,11 +301,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         gap: 16px;
         align-items: center;
         width: 100%;
-        animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 1s backwards;
-
-        & h1 {
-          color: light-dark(var(--p-40), var(--n-90));
-        }
+        animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 
         & > div {
           display: flex;
@@ -283,15 +309,17 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
           gap: 12px;
           align-items: center;
           width: 100%;
-          background: light-dark(var(--n-95), var(--n-5));
-          padding: 8px;
-          border-radius: 32px;
+          background: light-dark(white, var(--n-10));
+          padding: 10px 10px 10px 24px;
+          border-radius: 24px;
           border: 1px solid var(--sidebar-border);
-          transition: border-color 0.2s, box-shadow 0.2s;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
 
           &:focus-within {
              border-color: var(--p-40);
-             box-shadow: 0 0 0 2px var(--p-90);
+             box-shadow: 0 15px 35px -5px rgba(81, 84, 179, 0.2);
+             transform: translateY(-2px);
           }
 
           & > input {
@@ -299,10 +327,15 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
             flex: 1;
             border: none;
             background: transparent;
-            padding: 12px 16px;
+            padding: 12px 0;
             font-size: 16px;
             color: light-dark(var(--n-10), var(--n-90));
             outline: none;
+            font-family: inherit;
+
+            &::placeholder {
+              color: light-dark(var(--n-60), var(--n-40));
+            }
           }
 
           & > button {
@@ -312,74 +345,98 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
             background: var(--p-40);
             color: var(--n-100);
             border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            border-radius: 18px;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: all 0.2s ease;
 
             &:disabled {
-              opacity: 0.5;
+              opacity: 0.3;
               cursor: not-allowed;
+              filter: grayscale(1);
             }
             
             &:not(:disabled):hover {
-               opacity: 0.9;
+               background: var(--p-35);
+               transform: scale(1.05);
+            }
+
+            &:not(:disabled):active {
+               transform: scale(0.95);
             }
           }
         }
       }
 
-      .rotate {
-        animation: rotate 1s linear infinite;
-      }
-
       .pending {
         width: 100%;
-        min-height: 200px;
+        min-height: 100px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 0.3s backwards;
+        animation: fadeIn 0.5s ease;
         gap: 16px;
+        color: light-dark(var(--n-40), var(--n-60));
+        font-size: 14px;
+      }
+
+      .message-wrapper {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        padding: 0 24px;
       }
 
       .user-message {
         align-self: flex-end;
         background: var(--user-msg-bg);
         color: var(--user-msg-text);
-        padding: 14px 20px;
+        padding: 12px 20px;
         border-radius: 20px 20px 4px 20px;
-        max-width: 80%;
+        max-width: 75%;
         word-break: break-word;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        line-height: 1.5;
+        box-shadow: 0 4px 12px rgba(81, 84, 179, 0.15);
+        line-height: 1.6;
+        font-size: 15px;
+        animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
       .agent-message {
         align-self: flex-start;
         background: var(--agent-msg-bg);
         color: var(--agent-msg-text);
-        padding: 14px 20px;
+        padding: 16px 24px;
         border-radius: 20px 20px 20px 4px;
-        max-width: 85%;
+        width: 100%;
+        max-width: 100%;
         word-break: break-word;
-        line-height: 1.5;
+        line-height: 1.6;
+        font-size: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+        animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .agent-message.has-surface {
+        background: transparent;
+        padding: 0;
+        box-shadow: none;
       }
       
       .agent-message a2ui-surface {
          display: block;
-         margin-top: 8px;
+         margin-top: 12px;
+         width: 100%;
       }
 
       .spinner {
-        width: 48px;
-        height: 48px;
-        border: 4px solid rgba(255, 255, 255, 0.1);
-        border-left-color: var(--p-60);
+        width: 24px;
+        height: 24px;
+        border: 3px solid light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.1));
+        border-left-color: var(--p-40);
         border-radius: 50%;
-        animation: spin 1s linear infinite;
+        animation: spin 0.8s linear infinite;
       }
 
       .theme-toggle {
@@ -389,18 +446,19 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         display: flex;
         align-items: center;
         justify-content: center;
-        position: fixed;
-        top: var(--bb-grid-size-3);
-        right: var(--bb-grid-size-4);
-        background: light-dark(var(--n-100), var(--n-0));
-        border-radius: 50%;
-        color: var(--p-30);
+        background: transparent;
+        border-radius: 12px;
+        color: light-dark(var(--n-40), var(--n-70));
         cursor: pointer;
-        width: 48px;
-        height: 48px;
-        font-size: 32px;
-        z-index: 1000;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        width: 40px;
+        height: 40px;
+        font-size: 24px;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background: light-dark(rgba(0,0,0,0.05), rgba(255,255,255,0.1));
+          color: var(--p-40);
+        }
 
         & .g-icon {
           pointer-events: none;
@@ -428,15 +486,34 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         }
       }
 
-      @keyframes pulse {
-        0% {
-          opacity: 0.6;
+      @keyframes slideInRight {
+        from {
+          opacity: 0;
+          transform: translateX(20px);
         }
-        50% {
+        to {
           opacity: 1;
+          transform: translateX(0);
         }
-        100% {
-          opacity: 0.6;
+      }
+
+      @keyframes slideInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
         }
       }
 
@@ -445,18 +522,11 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         background-color: var(--e-95);
         border: 1px solid var(--e-80);
         padding: 16px;
-        border-radius: 8px;
+        border-radius: 12px;
+        margin: 0 24px;
+        font-size: 14px;
       }
 
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-        }
-
-        to {
-          opacity: 1;
-        }
-      }
 
       @keyframes rotate {
         from {
@@ -607,8 +677,10 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   }
 
   render() {
+    const activeConv = this.#conversations.find(c => c.id === this.#activeConversationId);
+    const title = activeConv?.title || this.config.title;
+
     return html`
-      ${this.#renderThemeToggle()}
       <div class="sidebar">
         <div class="sidebar-header">
           <button class="new-chat-btn" @click=${this.#createNewChat}>
@@ -617,12 +689,12 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         </div>
         <div class="conversation-list">
           ${this.#conversations.map(
-            (conv) => html`
+      (conv) => html`
               <div
                 class=${classMap({
-                  "conversation-item": true,
-                  active: conv.id === this.#activeConversationId,
-                })}
+        "conversation-item": true,
+        active: conv.id === this.#activeConversationId,
+      })}
                 @click=${() => this.#selectConversation(conv.id)}
               >
                 <span class="conversation-title"
@@ -630,14 +702,18 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
                 >
               </div>
             `
-          )}
+    )}
         </div>
       </div>
       <div class="main-container">
+        <header class="header">
+          <div class="header-title">${title}</div>
+          ${this.#renderThemeToggle()}
+        </header>
         <div class="content-area">
           ${!this.#activeConversationId || this.#activeHistory.length === 0
-            ? this.#renderWelcome()
-            : nothing}
+        ? this.#renderWelcome()
+        : nothing}
           ${this.#renderHistory()} ${this.#maybeRenderData()}
           ${this.#maybeRenderError()}
         </div>
@@ -665,9 +741,9 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     return html`
       <button
         @click=${() => {
-          const isDark = document.body.classList.contains("dark");
-          this.#setTheme(isDark ? "light" : "dark");
-        }}
+        const isDark = document.body.classList.contains("dark");
+        this.#setTheme(isDark ? "light" : "dark");
+      }}
         class="theme-toggle"
         title="Toggle Theme"
       >
@@ -677,99 +753,113 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
   #renderWelcome() {
     return html`
-      ${this.config.heroImage
+      <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.8;">
+        ${this.config.heroImage
         ? html`<div
-            style=${styleMap({
-              "--background-image-light": `url(${this.config.heroImage})`,
-              "--background-image-dark": `url(${
-                this.config.heroImageDark ?? this.config.heroImage
-              })`,
-            })}
-            id="hero-img"
-          ></div>`
+              style=${styleMap({
+          "--background-image-light": `url(${this.config.heroImage})`,
+          "--background-image-dark": `url(${this.config.heroImageDark ?? this.config.heroImage
+            })`,
+        })}
+              id="hero-img"
+            ></div>`
         : nothing}
-      <h1 class="app-title" style="text-align: center;">${this.config.title}</h1>
+        <h1 class="app-title" style="text-align: center; margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.03em;">
+          How can I help you today?
+        </h1>
+        <p style="text-align: center; color: light-dark(var(--n-40), var(--n-60)); margin-top: 12px; font-size: 16px;">
+          Try asking for restaurants, contacts or something else.
+        </p>
+      </div>
     `;
   }
 
   #renderHistory() {
     return html`
       ${this.#activeHistory.map((item) => {
-        if (item.role === "user") {
-          return html`<div class="user-message">${item.text}</div>`;
-        }
-        
-        return html`<div class="agent-message">
-            ${this.#renderAgentContent(item)}
-        </div>`;
-      })}
+      const hasSurface = !!(item.surfaces && item.processor);
+
+      if (item.role === "user") {
+        return html`
+            <div class="message-wrapper">
+              <div class="user-message">${item.text}</div>
+            </div>`;
+      }
+
+      return html`
+          <div class="message-wrapper">
+            <div class=${classMap({ "agent-message": true, "has-surface": hasSurface })}>
+                ${this.#renderAgentContent(item)}
+            </div>
+          </div>`;
+    })}
     `;
   }
 
   #renderAgentContent(item: any) {
-      if (item.surfaces && item.processor) {
-          const surfaces = Array.from(item.surfaces as Map<string, any>);
-          if (surfaces.length > 0) {
-             const [surfaceId, surface] = surfaces[surfaces.length - 1];
-             return html`<a2ui-surface
+    if (item.surfaces && item.processor) {
+      const surfaces = Array.from(item.surfaces as Map<string, any>);
+      if (surfaces.length > 0) {
+        const [surfaceId, surface] = surfaces[surfaces.length - 1];
+        return html`<a2ui-surface
                 @a2uiaction=${async (
-                  evt: v0_8.Events.StateEvent<"a2ui.action">
-                ) => {
-                  const [target] = evt.composedPath();
-                  if (!(target instanceof HTMLElement)) {
-                    return;
-                  }
+          evt: v0_8.Events.StateEvent<"a2ui.action">
+        ) => {
+            const [target] = evt.composedPath();
+            if (!(target instanceof HTMLElement)) {
+              return;
+            }
 
-                  const context: v0_8.Types.A2UIClientEventMessage["userAction"]["context"] =
-                    {};
-                  if (evt.detail.action.context) {
-                    const srcContext = evt.detail.action.context;
-                    for (const ctxItem of srcContext) {
-                      if (ctxItem.value.literalBoolean) {
-                        context[ctxItem.key] = ctxItem.value.literalBoolean;
-                      } else if (ctxItem.value.literalNumber) {
-                        context[ctxItem.key] = ctxItem.value.literalNumber;
-                      } else if (ctxItem.value.literalString) {
-                        context[ctxItem.key] = ctxItem.value.literalString;
-                      } else if (ctxItem.value.path) {
-                        const path = item.processor.resolvePath(
-                          ctxItem.value.path,
-                          evt.detail.dataContextPath
-                        );
-                        const value = item.processor.getData(
-                          evt.detail.sourceComponent,
-                          path,
-                          surfaceId
-                        );
-                        context[ctxItem.key] = value;
-                      }
-                    }
-                  }
+            const context: v0_8.Types.A2UIClientEventMessage["userAction"]["context"] =
+              {};
+            if (evt.detail.action.context) {
+              const srcContext = evt.detail.action.context;
+              for (const ctxItem of srcContext) {
+                if (ctxItem.value.literalBoolean) {
+                  context[ctxItem.key] = ctxItem.value.literalBoolean;
+                } else if (ctxItem.value.literalNumber) {
+                  context[ctxItem.key] = ctxItem.value.literalNumber;
+                } else if (ctxItem.value.literalString) {
+                  context[ctxItem.key] = ctxItem.value.literalString;
+                } else if (ctxItem.value.path) {
+                  const path = item.processor.resolvePath(
+                    ctxItem.value.path,
+                    evt.detail.dataContextPath
+                  );
+                  const value = item.processor.getData(
+                    evt.detail.sourceComponent,
+                    path,
+                    surfaceId
+                  );
+                  context[ctxItem.key] = value;
+                }
+              }
+            }
 
-                  const message: v0_8.Types.A2UIClientEventMessage = {
-                    userAction: {
-                      name: evt.detail.action.name,
-                      surfaceId,
-                      sourceComponentId: target.id,
-                      timestamp: new Date().toISOString(),
-                      context,
-                    },
-                  };
+            const message: v0_8.Types.A2UIClientEventMessage = {
+              userAction: {
+                name: evt.detail.action.name,
+                surfaceId,
+                sourceComponentId: target.id,
+                timestamp: new Date().toISOString(),
+                context,
+              },
+            };
 
-                  await this.#sendAndProcessMessage(message);
-                }}
+            await this.#sendAndProcessMessage(message);
+          }}
                 .surfaceId=${surfaceId}
                 .surface=${surface}
                 .processor=${item.processor}
               ></a2ui-surface>`;
-          }
       }
+    }
 
-      if (item.text) {
-          return html`<div>${item.text}</div>`;
-      }
+    if (item.text) {
+      return html`<div>${item.text}</div>`;
+    }
 
-      return nothing;
+    return nothing;
   }
 
   #renderInputForm() {
@@ -784,12 +874,12 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         if (!body) {
           return;
         }
-        
+
         // Reset form
         evt.target.reset();
 
         const message = body as v0_8.Types.A2UIClientEventMessage;
-        
+
 
         await this.#sendAndProcessMessage(message);
       }}
@@ -919,8 +1009,8 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     const surfaces = processor.getSurfaces();
 
     const historyItem: any = {
-        role: "agent",
-        messages
+      role: "agent",
+      messages
     };
 
     if (surfaces.size > 0) {
@@ -936,28 +1026,28 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         ) {
           for (const content of msg.dataModelUpdate.contents) {
             if (content.key === "response" && content.valueString) {
-                textResponses.push(content.valueString);
+              textResponses.push(content.valueString);
             }
           }
         }
       }
 
       if (textResponses.length > 0) {
-          historyItem.text = textResponses[textResponses.length - 1];
-          historyItem.allTextResponses = textResponses;
+        historyItem.text = textResponses[textResponses.length - 1];
+        historyItem.allTextResponses = textResponses;
       }
     }
 
     if (historyItem.surfaces || historyItem.text) {
-        // Re-fetch conversation as it might have changed (though unlikely in single-threaded JS unless async happened)
-        // Actually we are in async function, but we updated state before await.
-        // We need to append to the *current* history of the conversation.
+      // Re-fetch conversation as it might have changed (though unlikely in single-threaded JS unless async happened)
+      // Actually we are in async function, but we updated state before await.
+      // We need to append to the *current* history of the conversation.
 
-        this.#conversations = this.#conversations.map((c) =>
-            c.id === conversationId
-              ? { ...c, history: [...c.history, historyItem] }
-              : c
-          );
+      this.#conversations = this.#conversations.map((c) =>
+        c.id === conversationId
+          ? { ...c, history: [...c.history, historyItem] }
+          : c
+      );
     }
 
     this.#lastMessages = messages;
