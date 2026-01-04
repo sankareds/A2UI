@@ -227,17 +227,20 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         display: flex;
         flex-direction: column;
         gap: 24px;
-        max-width: 900px;
         width: 100%;
         margin: 0 auto;
         scroll-behavior: smooth;
+        scrollbar-width: none;
+      }
+
+      .content-area::-webkit-scrollbar {
+        display: none;
       }
 
       .input-area {
         padding: 24px;
         background: var(--chat-bg);
         width: 100%;
-        max-width: 900px;
         margin: 0 auto;
         position: relative;
         z-index: 10;
@@ -659,7 +662,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   }
 
   #renderThemeToggle() {
-    return html` <div>
+    return html`
       <button
         @click=${() => {
           const isDark = document.body.classList.contains("dark");
@@ -669,8 +672,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         title="Toggle Theme"
       >
         <span class="g-icon filled-heavy"></span>
-      </button>
-    </div>`;
+      </button>`;
   }
 
   #renderWelcome() {

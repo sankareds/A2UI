@@ -34,6 +34,7 @@ import { Theme, AnyComponentNode, SurfaceID } from "../types/types.js";
 import { themeContext } from "./context/theme.js";
 import { structuralStyles } from "./styles.js";
 import { componentRegistry } from "./component-registry.js";
+import { StateEvent } from "../events/events.js";
 
 type NodeOfType<T extends AnyComponentNode["type"]> = Extract<
   AnyComponentNode,
@@ -94,6 +95,11 @@ export class Root extends SignalWatcher(LitElement) {
    */
   #lightDomEffectDisposer: null | (() => void) = null;
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    this.addEventListener(StateEvent.eventName, this.handleAction);
+  }
+
   protected willUpdate(changedProperties: PropertyValues<this>): void {
     if (changedProperties.has("childComponents")) {
       if (this.#lightDomEffectDisposer) {
@@ -119,11 +125,28 @@ export class Root extends SignalWatcher(LitElement) {
    */
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.removeEventListener(StateEvent.eventName, this.handleAction);
 
     if (this.#lightDomEffectDisposer) {
       this.#lightDomEffectDisposer();
     }
   }
+
+  private handleAction = (event: Event) => {
+    const textFields = this.querySelectorAll("a2ui-textfield");
+    for (const tf of Array.from(textFields)) {
+      const shadow = tf.shadowRoot;
+      if (shadow) {
+        const input = shadow.querySelector("input");
+        if (input && !input.checkValidity()) {
+          input.reportValidity();
+          event.stopPropagation();
+          event.preventDefault();
+          return;
+        }
+      }
+    }
+  };
 
   /**
    * Turns the SignalMap into a renderable TemplateResult for Lit.
