@@ -65,20 +65,30 @@ interface HistoryItem {
   allTextResponses?: string[];
   isUIResponse?: boolean;
   origin?: "chat" | "canvas";
+  queryId?: string;
+}
+
+interface Canvas {
+  canvasId: string;
+  canvasVersion: number;
+  serverUrl: string;
+  uiMessages: v0_8.Types.ServerToClientMessage[];
+}
+
+interface Query {
+  id: string;
+  timestamp: number;
+  processor: any;
+  canvases: Canvas[];
+  userText?: string;
+  agentResponse?: HistoryItem;
 }
 
 interface Conversation {
   id: string;
   title: string;
-  history: HistoryItem[];
-  timestamp: number;
-  processor?: any;
+  queries: Query[];
   client?: A2UIClient;
-  canvasId: string;
-  canvasVersion: number;
-  latestSurface?: any;
-  latestSurfaceId?: string;
-  uiMessages: v0_8.Types.ServerToClientMessage[];
 }
 
 @customElement("a2ui-shell")
@@ -109,6 +119,9 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   accessor #activeConversationId: string | null = null;
 
   @state()
+  accessor #activeQueryId: string | null = null;
+
+  @state()
   accessor #isCanvasOpen = false;
 
   @state()
@@ -129,7 +142,25 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     const conversation = this.#conversations.find(
       (c) => c.id === this.#activeConversationId
     );
-    return conversation ? conversation.history : [];
+    if (!conversation) return [];
+
+    const history: HistoryItem[] = [];
+    for (const query of conversation.queries) {
+      if (query.userText) {
+        history.push({
+          role: "user",
+          text: query.userText,
+          origin: "chat",
+          queryId: query.id
+        });
+      }
+      if (query.agentResponse) {
+        const item = { ...query.agentResponse, queryId: query.id };
+        if (!item.processor) item.processor = query.processor;
+        history.push(item);
+      }
+    }
+    return history;
   }
 
   static styles = [
@@ -721,9 +752,14 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     const stateToSave = {
       conversations: this.#conversations.map((c) => ({
         ...c,
-        history: c.history.map((h) => {
-          const { processor, surfaces, ...rest } = h;
-          return rest;
+        queries: c.queries.map((q) => {
+          const { processor, ...rest } = q;
+          const agentResponse = q.agentResponse ? { ...q.agentResponse } : undefined;
+          if (agentResponse) {
+            delete agentResponse.processor;
+            delete agentResponse.surfaces;
+          }
+          return { ...rest, agentResponse };
         }),
       })),
       activeConversationId: this.#activeConversationId,
@@ -740,43 +776,38 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     try {
       const state = JSON.parse(stored);
       if (state.conversations) {
-        this.#conversations = (state.conversations as Conversation[]).map((c) => {
-          const processor = v0_8.Data.createSignalA2uiMessageProcessor();
-          const uiMessages: v0_8.Types.ServerToClientMessage[] = [];
+        this.#conversations = (state.conversations as any[]).map((c) => {
+          const queries = (c.queries || []).map((q: any) => {
+            const processor = v0_8.Data.createSignalA2uiMessageProcessor();
 
-          if (c.history) {
-            for (const h of c.history) {
-              if (h.role === "agent" && h.messages) {
-                processor.processMessages(h.messages);
-                uiMessages.push(...h.messages);
+            if (q.canvases) {
+              for (const canvas of q.canvases) {
+                if (canvas.uiMessages) {
+                  processor.processMessages(canvas.uiMessages);
+                }
               }
             }
-          }
 
-          const surfaces = processor.getSurfaces();
-          const surfaceMap = Array.from(surfaces as Map<string, any>);
-          let latestSurface = undefined;
-          let latestSurfaceId = undefined;
-          if (surfaceMap.length > 0) {
-            [latestSurfaceId, latestSurface] = surfaceMap[surfaceMap.length - 1];
-          }
-
-          const history = (c.history || []).map(h => {
-            if (h.role === "agent" && h.messages) {
-              return { ...h, processor, surfaces: processor.getSurfaces() };
+            const surfaces = processor.getSurfaces();
+            let agentResponse = q.agentResponse;
+            if (agentResponse) {
+              agentResponse = {
+                ...agentResponse,
+                processor,
+                surfaces
+              };
             }
-            return h;
+
+            return {
+              ...q,
+              processor,
+              agentResponse
+            };
           });
 
           return {
             ...c,
-            history,
-            processor,
-            uiMessages,
-            latestSurface,
-            latestSurfaceId,
-            canvasVersion: 0,
-            canvasId: c.canvasId || globalThis.crypto.randomUUID(),
+            queries,
             client: new A2UIClient(this.config?.serverUrl || "http://localhost:10005")
           };
         });
@@ -915,10 +946,34 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
   #renderCanvas() {
     const activeConv = this.#conversations.find(c => c.id === this.#activeConversationId);
-    if (!activeConv || !activeConv.processor) return nothing;
+    if (!activeConv) return nothing;
+
+    // Find active query
+    let activeQuery = activeConv.queries.find(q => q.id === this.#activeQueryId);
+    // If no active query selected, default to the last one that has canvases
+    if (!activeQuery) {
+      for (let i = activeConv.queries.length - 1; i >= 0; i--) {
+        if (activeConv.queries[i].canvases.length > 0) {
+          activeQuery = activeConv.queries[i];
+          break;
+        }
+      }
+    }
+
+    if (!activeQuery || activeQuery.canvases.length === 0) return nothing;
+
+    const activeCanvas = activeQuery.canvases[activeQuery.canvases.length - 1];
+    const processor = activeQuery.processor;
+    const surfaces = processor.getSurfaces();
+    const surfaceMap = Array.from(surfaces as Map<string, any>);
+
+    let latestSurfaceId, latestSurface;
+    if (surfaceMap.length > 0) {
+      [latestSurfaceId, latestSurface] = surfaceMap[surfaceMap.length - 1];
+    }
 
     return html`
-      <div id="canvas-container-${activeConv.canvasId}-${activeConv.canvasVersion}" class="canvas-wrapper-inner" style="height: 100%; display: flex; flex-direction: column;">
+      <div id="canvas-container-${activeCanvas.canvasId}-${activeCanvas.canvasVersion}" class="canvas-wrapper-inner" style="height: 100%; display: flex; flex-direction: column;">
         <div class="canvas-header">
           <div class="header-title" style="font-size: 16px;">Live Preview</div>
           <button class="close-canvas-btn" @click=${() => { this.#isCanvasOpen = false; this.#isFocused = false; }}>
@@ -926,45 +981,49 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
           </button>
         </div>
         <div class="canvas-content">
-          ${activeConv.latestSurfaceId && activeConv.latestSurface
-        ? html`
+          ${latestSurfaceId && latestSurface
+      ? html`
               <div class="canvas-surface-wrapper" data-conv-id="${activeConv.id}">
                 <a2ui-surface
-                  @a2uiaction=${(evt: v0_8.Events.StateEvent<"a2ui.action">) => this.#handleSurfaceAction(evt, { processor: activeConv.processor } as any, activeConv.latestSurfaceId!, true)}
-                  .surfaceId=${activeConv.latestSurfaceId}
-                  .surface=${activeConv.latestSurface}
-                  .processor=${activeConv.processor}
+                  @a2uiaction=${(evt: v0_8.Events.StateEvent<"a2ui.action">) => this.#handleSurfaceAction(evt, { processor } as any, latestSurfaceId!, true)}
+                  .surfaceId=${latestSurfaceId}
+                  .surface=${latestSurface}
+                  .processor=${processor}
                 ></a2ui-surface>
               </div>`
-        : html`
+      : html`
               <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--n-60); height: 100%;">
                 No UI updates found in this conversation
               </div>`
-      }
+    }
         </div>
       </div>
     `;
   }
 
-  #renderCanvasContent(item: HistoryItem, processor: any) {
-    const surfaces = processor.getSurfaces();
-    const surfaceMap = Array.from(surfaces as Map<string, any>);
-    if (surfaceMap.length === 0) return nothing;
 
-    const [surfaceId, surface] = surfaceMap[surfaceMap.length - 1];
-    return html`
-      <a2ui-surface
-        @a2uiaction=${(evt: v0_8.Events.StateEvent<"a2ui.action">) => this.#handleSurfaceAction(evt, item, surfaceId, true)}
-        .surfaceId=${surfaceId}
-        .surface=${surface}
-        .processor=${processor}
-      ></a2ui-surface>
-    `;
-  }
 
   async #handleSurfaceAction(evt: v0_8.Events.StateEvent<"a2ui.action">, item: HistoryItem, surfaceId: string, fromCanvas = false) {
     const activeConv = this.#conversations.find(c => c.id === this.#activeConversationId);
-    const processor = activeConv?.processor || item.processor;
+    let processor = item.processor;
+
+    if (!processor && activeConv) {
+       // Try to find processor from active query if fromCanvas
+       if (fromCanvas) {
+          let activeQuery = activeConv.queries.find(q => q.id === this.#activeQueryId);
+          if (!activeQuery) {
+             // Default to last query with canvases
+             for (let i = activeConv.queries.length - 1; i >= 0; i--) {
+                if (activeConv.queries[i].canvases.length > 0) {
+                   activeQuery = activeConv.queries[i];
+                   break;
+                }
+             }
+          }
+          if (activeQuery) processor = activeQuery.processor;
+       }
+    }
+
     if (!processor) return;
 
     const [target] = evt.composedPath();
@@ -1005,12 +1064,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     const newConv: Conversation = {
       id,
       title: "",
-      history: [],
-      timestamp: Date.now(),
-      processor: v0_8.Data.createSignalA2uiMessageProcessor(),
-      canvasId: globalThis.crypto.randomUUID(),
-      canvasVersion: 0,
-      uiMessages: [],
+      queries: [],
       client: new A2UIClient(this.config.serverUrl)
     };
     this.#conversations = [newConv, ...this.#conversations];
@@ -1019,9 +1073,8 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
   #selectConversation(id: string) {
     this.#activeConversationId = id;
-    this.#conversations = this.#conversations.map(c =>
-      c.id === id ? { ...c, canvasVersion: (c.canvasVersion || 0) + 1 } : c
-    );
+    // Reset active query when switching conversation? Or keep it null to show latest?
+    this.#activeQueryId = null;
   }
 
   #renderThemeToggle() {
@@ -1061,7 +1114,6 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   }
 
   #renderHistory() {
-    const activeConv = this.#conversations.find(c => c.id === this.#activeConversationId);
     return html`
       ${this.#activeHistory.map((item) => {
       if (item.origin === "canvas" && item.isUIResponse) {
@@ -1084,7 +1136,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       return html`
           <div class="message-wrapper">
             <div class=${classMap({ "agent-message": true, "has-surface": hasSurface })}>
-                ${this.#renderAgentContent(item, activeConv?.processor)}
+                ${this.#renderAgentContent(item, item.processor)}
             </div>
           </div>`;
     })}
@@ -1099,12 +1151,15 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         <div class="agent-text" style="${isFromCanvas ? 'font-size: 16px; opacity: 0.8; font-style: italic;' : ''}">
           ${item.text || (isFromCanvas ? 'Canvas updated' : 'I have generated a UI for you.')}
         </div>
-        ${!this.#isCanvasOpen ? html`
-          <button class="ui-artifact-btn" @click=${() => this.#isCanvasOpen = true}>
-            <span class="g-icon">web_asset</span>
-            Open in Canvas
-          </button>
-        ` : nothing}
+        <button class="ui-artifact-btn" @click=${() => {
+          this.#isCanvasOpen = true;
+          if (item.queryId) {
+            this.#activeQueryId = item.queryId;
+          }
+        }}>
+          <span class="g-icon">web_asset</span>
+          Open in Canvas
+        </button>
       `;
     }
 
@@ -1230,58 +1285,76 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     const conversationId = this.#activeConversationId!;
     let conversation = this.#conversations.find((c) => c.id === conversationId)!;
 
-    let updatedHistory = conversation.history;
-    let updatedTitle = conversation.title;
+    let currentQuery: Query;
 
     if (typeof request === "string") {
-      const userHistoryItem: HistoryItem = { role: "user", text: request };
-      updatedHistory = [...conversation.history, userHistoryItem];
-      if (conversation.history.length === 0) {
+      const queryId = globalThis.crypto.randomUUID();
+      currentQuery = {
+        id: queryId,
+        timestamp: Date.now(),
+        processor: v0_8.Data.createSignalA2uiMessageProcessor(),
+        canvases: [],
+        userText: request
+      };
+
+      const updatedQueries = [...conversation.queries, currentQuery];
+      let updatedTitle = conversation.title;
+      if (conversation.queries.length === 0) {
         updatedTitle = request;
       }
-    } else if (conversation.history.length === 0) {
-      updatedTitle = "New Conversation";
-    }
 
-    this.#conversations = this.#conversations.map((c) =>
-      c.id === conversationId
-        ? { ...c, history: updatedHistory, title: updatedTitle }
-        : c
-    );
+      this.#conversations = this.#conversations.map(c =>
+        c.id === conversationId ? { ...c, queries: updatedQueries, title: updatedTitle } : c
+      );
+
+      // Update local reference
+      conversation = this.#conversations.find((c) => c.id === conversationId)!;
+    } else {
+      // It's a UI event
+      const queries = conversation.queries;
+      if (queries.length === 0) return;
+
+      // If fromCanvas, try to find the query associated with the active canvas
+      if (fromCanvas && this.#activeQueryId) {
+         currentQuery = queries.find(q => q.id === this.#activeQueryId) || queries[queries.length - 1];
+      } else {
+         currentQuery = queries[queries.length - 1];
+      }
+    }
 
     const { messages, ui_response } = await this.#sendMessage(request, conversation.client);
 
-    // Re-fetch conversation to ensure we have the latest state for processing
+    // Re-fetch to get latest state
     const processingConv = this.#conversations.find((c) => c.id === conversationId);
-    if (!processingConv || !processingConv.processor) return;
+    if (!processingConv) return;
 
-    processingConv.processor.processMessages(messages);
+    const queryIndex = processingConv.queries.findIndex(q => q.id === currentQuery.id);
+    if (queryIndex === -1) return;
 
-    // Immutable update for UI messages and latest surface
-    const updatedUIMessages = ui_response
-      ? [...processingConv.uiMessages, ...messages]
-      : processingConv.uiMessages;
+    const query = processingConv.queries[queryIndex];
+    const processor = query.processor;
 
-    const surfaces = processingConv.processor.getSurfaces();
-    const surfaceMap = Array.from(surfaces as Map<string, any>);
-    let latestSurface = processingConv.latestSurface;
-    let latestSurfaceId = processingConv.latestSurfaceId;
-    if (surfaceMap.length > 0) {
-      [latestSurfaceId, latestSurface] = surfaceMap[surfaceMap.length - 1];
+    processor.processMessages(messages);
+
+    let canvases = [...query.canvases];
+
+    if (canvases.length > 0) {
+      const activeCanvas = { ...canvases[canvases.length - 1] };
+      activeCanvas.uiMessages = [...activeCanvas.uiMessages, ...messages];
+      if (ui_response) {
+        activeCanvas.canvasVersion = activeCanvas.canvasVersion + 1;
+      }
+      canvases[canvases.length - 1] = activeCanvas;
+    } else if (ui_response) {
+      canvases.push({
+        canvasId: globalThis.crypto.randomUUID(),
+        canvasVersion: 0,
+        serverUrl: this.config.serverUrl || "",
+        uiMessages: [...messages]
+      });
     }
 
-    // Update conversation in the state with all changes
-    this.#conversations = this.#conversations.map(c =>
-      c.id === conversationId
-        ? {
-          ...c,
-          uiMessages: updatedUIMessages,
-          latestSurface,
-          latestSurfaceId,
-          canvasVersion: (c.canvasVersion || 0) + 1
-        }
-        : c
-    );
+    const surfaces = processor.getSurfaces();
 
     const textResponses: string[] = [];
     let uiTitle: string | undefined = undefined;
@@ -1298,28 +1371,43 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       }
     }
 
-    const historyItem: HistoryItem = {
-      role: "agent",
-      messages,
-      isUIResponse: ui_response,
-      text: uiTitle || (textResponses.length > 0 ? textResponses[textResponses.length - 1] : undefined),
-      allTextResponses: textResponses.length > 0 ? textResponses : undefined,
-      origin: fromCanvas ? "canvas" : "chat"
+    let agentResponse = query.agentResponse;
+
+    if (!agentResponse || !fromCanvas) {
+      agentResponse = {
+        role: "agent",
+        messages,
+        isUIResponse: ui_response,
+        text: uiTitle || (textResponses.length > 0 ? textResponses[textResponses.length - 1] : undefined),
+        allTextResponses: textResponses.length > 0 ? textResponses : undefined,
+        origin: fromCanvas ? "canvas" : "chat",
+        processor,
+        surfaces,
+        queryId: query.id
+      };
+    } else {
+      // Update existing response with latest state but preserve identity
+      agentResponse = {
+        ...agentResponse,
+        processor,
+        surfaces,
+        // If we got a new UI response (e.g. navigation), we might want to ensure isUIResponse is true
+        isUIResponse: agentResponse.isUIResponse || ui_response
+      };
+    }
+
+    const updatedQuery = {
+      ...query,
+      canvases,
+      agentResponse
     };
 
-    const currentConv = this.#conversations.find((c) => c.id === conversationId)!;
-    if (surfaces.size > 0) {
-      historyItem.processor = currentConv.processor;
-      historyItem.surfaces = surfaces;
-    }
+    const updatedQueries = [...processingConv.queries];
+    updatedQueries[queryIndex] = updatedQuery;
 
-    if (historyItem.surfaces || historyItem.text) {
-      this.#conversations = this.#conversations.map((c) =>
-        c.id === conversationId
-          ? { ...c, history: [...c.history, historyItem] }
-          : c
-      );
-    }
+    this.#conversations = this.#conversations.map(c =>
+      c.id === conversationId ? { ...c, queries: updatedQueries } : c
+    );
 
     this.#lastMessages = messages;
   }
