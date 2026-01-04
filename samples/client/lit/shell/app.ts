@@ -131,11 +131,14 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         --chat-bg: transparent;
         --user-msg-bg: light-dark(#334155, #475569);
         --user-msg-text: #ffffff;
-        --agent-msg-bg: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.05));
+        --agent-msg-bg: light-dark(#f8fafc, #0f172a);
+        --agent-msg-border: light-dark(rgba(0,0,0,0.05), rgba(255,255,255,0.05));
         --agent-msg-text: light-dark(var(--n-10), var(--n-90));
         --header-height: 64px;
         --accent-blue: #3b82f6;
         --accent-blue-hover: #2563eb;
+        --card-bg: #f8fafc;
+        --card-border: rgba(0,0,0,0.05);
       }
 
       .sidebar {
@@ -400,7 +403,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         word-break: break-word;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
         line-height: 1.6;
-        font-size: 15px;
+        font-size: 20px;
         animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         border: 1px solid rgba(255, 255, 255, 0.1);
       }
@@ -437,8 +440,9 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         max-width: calc(100% - 450px);
         word-break: break-word;
         line-height: 1.6;
-        font-size: 15px;
+        font-size: 20px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+        border: 1px solid var(--agent-msg-border);
         animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
@@ -581,14 +585,31 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
   #setTheme(theme: "dark" | "light") {
     const body = document.body;
+    const root = document.documentElement;
+
     if (theme === "dark") {
       body.classList.remove("light");
       body.classList.add("dark");
-      document.documentElement.style.colorScheme = "dark";
+      root.style.colorScheme = "dark";
+      root.style.setProperty("--card-bg", "#1e293b", "important"); // Darker slate for better contrast
+      root.style.setProperty("--card-border", "rgba(255,255,255,0.05)", "important");
+      // Override inverse background colors (color-bgc-n100 uses --n-0 in dark mode)
+      root.style.setProperty("--n-0", "#1e293b", "important"); // Dark background (inverse of n-100, used in dark mode)
+      root.style.setProperty("--n-100", "#f8fafc", "important"); // Light background (inverse of n-0, used in light mode)
+      // Override inverse text colors for dark mode (these are used by light-dark() in dark mode)
+      root.style.setProperty("--n-90", "#e2e8f0", "important"); // Light text (inverse of n-10, used in dark mode)
+      root.style.setProperty("--n-70", "#cbd5e1", "important"); // Medium light text (inverse of n-30, used in dark mode)
+      root.style.setProperty("--p-70", "#94a3b8", "important"); // Primary light text (inverse of p-30, used in dark mode)
     } else {
       body.classList.remove("dark");
       body.classList.add("light");
-      document.documentElement.style.colorScheme = "light";
+      root.style.colorScheme = "light";
+      root.style.setProperty("--card-bg", "#f8fafc");
+      root.style.setProperty("--card-border", "rgba(0,0,0,0.05)");
+      // Reset to default values (remove overrides)
+      root.style.removeProperty("--n-90");
+      root.style.removeProperty("--n-70");
+      root.style.removeProperty("--p-70");
     }
   }
 
