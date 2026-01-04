@@ -129,11 +129,13 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         --sidebar-bg: light-dark(rgba(245, 247, 250, 0.8), rgba(15, 23, 42, 0.8));
         --sidebar-border: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.1));
         --chat-bg: transparent;
-        --user-msg-bg: var(--p-40);
-        --user-msg-text: var(--n-100);
-        --agent-msg-bg: light-dark(var(--n-95), var(--n-10));
+        --user-msg-bg: light-dark(#334155, #475569);
+        --user-msg-text: #ffffff;
+        --agent-msg-bg: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.05));
         --agent-msg-text: light-dark(var(--n-10), var(--n-90));
         --header-height: 64px;
+        --accent-blue: #3b82f6;
+        --accent-blue-hover: #2563eb;
       }
 
       .sidebar {
@@ -159,21 +161,21 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         justify-content: center;
         gap: 12px;
         padding: 14px;
-        background: var(--p-40);
-        color: var(--n-100);
+        background: var(--accent-blue);
+        color: white;
         border: none;
         border-radius: 16px;
         cursor: pointer;
         font-weight: 600;
         font-size: 15px;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 4px 12px rgba(81, 84, 179, 0.25);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
       }
       
       .new-chat-btn:hover {
-        background: var(--p-35);
+        background: var(--accent-blue-hover);
         transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(81, 84, 179, 0.35);
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
       }
 
       .new-chat-btn:active {
@@ -213,10 +215,10 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       }
 
       .conversation-item.active {
-        background: light-dark(rgba(81, 84, 179, 0.08), rgba(81, 84, 179, 0.15));
-        color: var(--p-40);
+        background: light-dark(rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.15));
+        color: var(--accent-blue);
         font-weight: 600;
-        border-color: light-dark(rgba(81, 84, 179, 0.1), rgba(81, 84, 179, 0.2));
+        border-color: light-dark(rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.2));
       }
 
       .main-container {
@@ -251,13 +253,13 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       .content-area {
         flex: 1;
         overflow-y: auto;
-        padding: 40px 0;
+        padding: 40px 64px;
         display: flex;
         flex-direction: column;
-        gap: 32px;
+        gap: 40px;
         width: 100%;
-        max-width: 900px;
-        margin: 0 auto;
+        max-width: 100%;
+        margin: 0;
         scroll-behavior: smooth;
         scrollbar-width: none;
       }
@@ -267,10 +269,10 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       }
 
       .input-area {
-        padding: 24px 0 48px;
+        padding: 24px 64px 48px;
         background: transparent;
         width: 100%;
-        max-width: 800px;
+        max-width: 1200px;
         margin: 0 auto;
         position: relative;
         z-index: 10;
@@ -317,8 +319,8 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
           box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
 
           &:focus-within {
-             border-color: var(--p-40);
-             box-shadow: 0 15px 35px -5px rgba(81, 84, 179, 0.2);
+             border-color: var(--accent-blue);
+             box-shadow: 0 15px 35px -5px rgba(59, 130, 246, 0.2);
              transform: translateY(-2px);
           }
 
@@ -342,8 +344,8 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--p-40);
-            color: var(--n-100);
+            background: var(--accent-blue);
+            color: white;
             border: none;
             width: 44px;
             height: 44px;
@@ -358,7 +360,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
             }
             
             &:not(:disabled):hover {
-               background: var(--p-35);
+               background: var(--accent-blue-hover);
                transform: scale(1.05);
             }
 
@@ -386,21 +388,43 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         display: flex;
         flex-direction: column;
         width: 100%;
-        padding: 0 24px;
       }
 
       .user-message {
-        align-self: flex-end;
         background: var(--user-msg-bg);
         color: var(--user-msg-text);
-        padding: 12px 20px;
+        padding: 16px 24px;
         border-radius: 20px 20px 4px 20px;
-        max-width: 75%;
+        max-width: 80%;
+        min-width: 50%;
         word-break: break-word;
-        box-shadow: 0 4px 12px rgba(81, 84, 179, 0.15);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
         line-height: 1.6;
         font-size: 15px;
         animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .user-message-container {
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
+        width: 100%;
+        justify-content: flex-end;
+        margin-bottom: 8px;
+      }
+
+      .user-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        background: var(--accent-blue);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
       }
 
       .agent-message {
@@ -410,7 +434,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         padding: 16px 24px;
         border-radius: 20px 20px 20px 4px;
         width: 100%;
-        max-width: 100%;
+        max-width: calc(100% - 450px);
         word-break: break-word;
         line-height: 1.6;
         font-size: 15px;
@@ -422,6 +446,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         background: transparent;
         padding: 0;
         box-shadow: none;
+        max-width: calc(100% - 100px);
       }
       
       .agent-message a2ui-surface {
@@ -434,7 +459,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         width: 24px;
         height: 24px;
         border: 3px solid light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.1));
-        border-left-color: var(--p-40);
+        border-left-color: var(--accent-blue);
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
       }
@@ -457,7 +482,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
 
         &:hover {
           background: light-dark(rgba(0,0,0,0.05), rgba(255,255,255,0.1));
-          color: var(--p-40);
+          color: var(--accent-blue);
         }
 
         & .g-icon {
@@ -782,7 +807,12 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       if (item.role === "user") {
         return html`
             <div class="message-wrapper">
-              <div class="user-message">${item.text}</div>
+              <div class="user-message-container">
+                <div class="user-message">${item.text}</div>
+                <div class="user-avatar">
+                  <span class="g-icon">person</span>
+                </div>
+              </div>
             </div>`;
       }
 

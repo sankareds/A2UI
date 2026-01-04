@@ -146,7 +146,7 @@ export class A2UIClient {
                     "Column": {
                       "children": {
                         "explicitList": [
-                          "title-heading",
+                          // "title-heading",
                           "item-card-template"
                         ]
                       }
@@ -227,10 +227,6 @@ export class A2UIClient {
               surfaceId: "default",
               path: "/",
               contents: [
-                {
-                  key: "title",
-                  valueString: "Response:",
-                },
                 {
                   key: "response",
                   valueString: part.text,

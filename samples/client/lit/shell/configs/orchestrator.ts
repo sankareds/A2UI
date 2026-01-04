@@ -24,7 +24,6 @@ const theme: v0_8.Types.Theme = {
     Card: {
       "min-width": "320px",
       "max-width": "400px",
-      margin: "0 auto",
       background:
         "linear-gradient(135deg, light-dark(#ffffff99, #ffffff44) 0%, light-dark(#ffffff, #ffffff04) 100%)",
       border: "1px solid light-dark(transparent, #ffffff35)",
