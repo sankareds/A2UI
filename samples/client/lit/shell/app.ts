@@ -123,7 +123,7 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         font-family: "Roboto", sans-serif;
         overflow: hidden;
         background: light-dark(var(--n-100), var(--n-0));
-        color-scheme: light dark;
+        color-scheme: var(--color-scheme, light dark);
         
         --sidebar-width: 280px;
         --sidebar-bg: light-dark(var(--n-95), var(--n-5));
@@ -617,12 +617,12 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         </div>
         <div class="conversation-list">
           ${this.#conversations.map(
-      (conv) => html`
+            (conv) => html`
               <div
                 class=${classMap({
-        "conversation-item": true,
-        active: conv.id === this.#activeConversationId,
-      })}
+                  "conversation-item": true,
+                  active: conv.id === this.#activeConversationId,
+                })}
                 @click=${() => this.#selectConversation(conv.id)}
               >
                 <span class="conversation-title"
@@ -630,14 +630,14 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
                 >
               </div>
             `
-    )}
+          )}
         </div>
       </div>
       <div class="main-container">
         <div class="content-area">
           ${!this.#activeConversationId || this.#activeHistory.length === 0
-        ? this.#renderWelcome()
-        : nothing}
+            ? this.#renderWelcome()
+            : nothing}
           ${this.#renderHistory()} ${this.#maybeRenderData()}
           ${this.#maybeRenderError()}
         </div>
@@ -665,9 +665,9 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     return html`
       <button
         @click=${() => {
-        const isDark = document.body.classList.contains("dark");
-        this.#setTheme(isDark ? "light" : "dark");
-      }}
+          const isDark = document.body.classList.contains("dark");
+          this.#setTheme(isDark ? "light" : "dark");
+        }}
         class="theme-toggle"
         title="Toggle Theme"
       >
@@ -680,10 +680,11 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
       ${this.config.heroImage
         ? html`<div
             style=${styleMap({
-          "--background-image-light": `url(${this.config.heroImage})`,
-          "--background-image-dark": `url(${this.config.heroImageDark ?? this.config.heroImage
-            })`,
-        })}
+              "--background-image-light": `url(${this.config.heroImage})`,
+              "--background-image-dark": `url(${
+                this.config.heroImageDark ?? this.config.heroImage
+              })`,
+            })}
             id="hero-img"
           ></div>`
         : nothing}
@@ -694,81 +695,81 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
   #renderHistory() {
     return html`
       ${this.#activeHistory.map((item) => {
-      if (item.role === "user") {
-        return html`<div class="user-message">${item.text}</div>`;
-      }
-
-      return html`<div class="agent-message">
+        if (item.role === "user") {
+          return html`<div class="user-message">${item.text}</div>`;
+        }
+        
+        return html`<div class="agent-message">
             ${this.#renderAgentContent(item)}
         </div>`;
-    })}
+      })}
     `;
   }
 
   #renderAgentContent(item: any) {
-    if (item.surfaces && item.processor) {
-      const surfaces = Array.from(item.surfaces as Map<string, any>);
-      if (surfaces.length > 0) {
-        const [surfaceId, surface] = surfaces[surfaces.length - 1];
-        return html`<a2ui-surface
+      if (item.surfaces && item.processor) {
+          const surfaces = Array.from(item.surfaces as Map<string, any>);
+          if (surfaces.length > 0) {
+             const [surfaceId, surface] = surfaces[surfaces.length - 1];
+             return html`<a2ui-surface
                 @a2uiaction=${async (
-          evt: v0_8.Events.StateEvent<"a2ui.action">
-        ) => {
-            const [target] = evt.composedPath();
-            if (!(target instanceof HTMLElement)) {
-              return;
-            }
+                  evt: v0_8.Events.StateEvent<"a2ui.action">
+                ) => {
+                  const [target] = evt.composedPath();
+                  if (!(target instanceof HTMLElement)) {
+                    return;
+                  }
 
-            const context: v0_8.Types.A2UIClientEventMessage["userAction"]["context"] =
-              {};
-            if (evt.detail.action.context) {
-              const srcContext = evt.detail.action.context;
-              for (const ctxItem of srcContext) {
-                if (ctxItem.value.literalBoolean) {
-                  context[ctxItem.key] = ctxItem.value.literalBoolean;
-                } else if (ctxItem.value.literalNumber) {
-                  context[ctxItem.key] = ctxItem.value.literalNumber;
-                } else if (ctxItem.value.literalString) {
-                  context[ctxItem.key] = ctxItem.value.literalString;
-                } else if (ctxItem.value.path) {
-                  const path = item.processor.resolvePath(
-                    ctxItem.value.path,
-                    evt.detail.dataContextPath
-                  );
-                  const value = item.processor.getData(
-                    evt.detail.sourceComponent,
-                    path,
-                    surfaceId
-                  );
-                  context[ctxItem.key] = value;
-                }
-              }
-            }
+                  const context: v0_8.Types.A2UIClientEventMessage["userAction"]["context"] =
+                    {};
+                  if (evt.detail.action.context) {
+                    const srcContext = evt.detail.action.context;
+                    for (const ctxItem of srcContext) {
+                      if (ctxItem.value.literalBoolean) {
+                        context[ctxItem.key] = ctxItem.value.literalBoolean;
+                      } else if (ctxItem.value.literalNumber) {
+                        context[ctxItem.key] = ctxItem.value.literalNumber;
+                      } else if (ctxItem.value.literalString) {
+                        context[ctxItem.key] = ctxItem.value.literalString;
+                      } else if (ctxItem.value.path) {
+                        const path = item.processor.resolvePath(
+                          ctxItem.value.path,
+                          evt.detail.dataContextPath
+                        );
+                        const value = item.processor.getData(
+                          evt.detail.sourceComponent,
+                          path,
+                          surfaceId
+                        );
+                        context[ctxItem.key] = value;
+                      }
+                    }
+                  }
 
-            const message: v0_8.Types.A2UIClientEventMessage = {
-              userAction: {
-                name: evt.detail.action.name,
-                surfaceId,
-                sourceComponentId: target.id,
-                timestamp: new Date().toISOString(),
-                context,
-              },
-            };
+                  const message: v0_8.Types.A2UIClientEventMessage = {
+                    userAction: {
+                      name: evt.detail.action.name,
+                      surfaceId,
+                      sourceComponentId: target.id,
+                      timestamp: new Date().toISOString(),
+                      context,
+                    },
+                  };
 
-            await this.#sendAndProcessMessage(message);
-          }}
+                  await this.#sendAndProcessMessage(message);
+                }}
                 .surfaceId=${surfaceId}
                 .surface=${surface}
                 .processor=${item.processor}
               ></a2ui-surface>`;
+          }
       }
-    }
 
-    if (item.text) {
-      return html`<div>${item.text}</div>`;
-    }
+      if (item.text) {
+          return html`<div>${item.text}</div>`;
+      }
 
-    return nothing;
+      return nothing;
   }
 
   #renderInputForm() {
@@ -783,12 +784,12 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         if (!body) {
           return;
         }
-
+        
         // Reset form
         evt.target.reset();
 
         const message = body as v0_8.Types.A2UIClientEventMessage;
-
+        
 
         await this.#sendAndProcessMessage(message);
       }}
@@ -918,8 +919,8 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
     const surfaces = processor.getSurfaces();
 
     const historyItem: any = {
-      role: "agent",
-      messages
+        role: "agent",
+        messages
     };
 
     if (surfaces.size > 0) {
@@ -935,28 +936,28 @@ export class A2UILayoutEditor extends SignalWatcher(LitElement) {
         ) {
           for (const content of msg.dataModelUpdate.contents) {
             if (content.key === "response" && content.valueString) {
-              textResponses.push(content.valueString);
+                textResponses.push(content.valueString);
             }
           }
         }
       }
 
       if (textResponses.length > 0) {
-        historyItem.text = textResponses[textResponses.length - 1];
-        historyItem.allTextResponses = textResponses;
+          historyItem.text = textResponses[textResponses.length - 1];
+          historyItem.allTextResponses = textResponses;
       }
     }
 
     if (historyItem.surfaces || historyItem.text) {
-      // Re-fetch conversation as it might have changed (though unlikely in single-threaded JS unless async happened)
-      // Actually we are in async function, but we updated state before await.
-      // We need to append to the *current* history of the conversation.
+        // Re-fetch conversation as it might have changed (though unlikely in single-threaded JS unless async happened)
+        // Actually we are in async function, but we updated state before await.
+        // We need to append to the *current* history of the conversation.
 
-      this.#conversations = this.#conversations.map((c) =>
-        c.id === conversationId
-          ? { ...c, history: [...c.history, historyItem] }
-          : c
-      );
+        this.#conversations = this.#conversations.map((c) =>
+            c.id === conversationId
+              ? { ...c, history: [...c.history, historyItem] }
+              : c
+          );
     }
 
     this.#lastMessages = messages;
