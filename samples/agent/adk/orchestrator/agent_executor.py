@@ -16,13 +16,14 @@ import asyncio
 import logging
 import json
 from typing import List, Optional, override
+
+from google.adk.a2a.converters.request_converter import AgentRunRequest
 from google.adk.agents.invocation_context import new_invocation_context_id
 from google.adk.events.event_actions import EventActions
 
 from a2a.server.agent_execution import RequestContext
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.artifacts import InMemoryArtifactService
-from a2a.server.events.event_queue import EventQueue
 from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -30,8 +31,12 @@ from google.adk.a2a.executor.a2a_agent_executor import (
     A2aAgentExecutorConfig,
     A2aAgentExecutor,
 )
-from a2a.types import AgentCapabilities, AgentCard, AgentExtension
-from a2ui.a2ui_extension import is_a2ui_part, try_activate_a2ui_extension, A2UI_EXTENSION_URI, STANDARD_CATALOG_ID, SUPPORTED_CATALOG_IDS_KEY, get_a2ui_agent_extension, A2UI_CLIENT_CAPABILITIES_KEY
+from a2a.types import (
+    AgentCapabilities,
+    AgentCard,
+)
+from a2ui.a2ui_extension import is_a2ui_part, try_activate_a2ui_extension, get_a2ui_agent_extension, A2UI_CLIENT_CAPABILITIES_KEY
+
 from google.adk.a2a.converters import event_converter
 from a2a.server.events import Event as A2AEvent
 from google.adk.events.event import Event
@@ -98,13 +103,13 @@ class OrchestratorAgentExecutor(A2aAgentExecutor):
                 if a2a_event.metadata is None:
                     a2a_event.metadata = {}
                 a2a_event.metadata["a2a_subagent"] = subagent_card
-                        
+
             for a2a_part in a2a_event.status.message.parts:
                 if (
                     is_a2ui_part(a2a_part)
                     and (begin_rendering := a2a_part.root.data.get("beginRendering"))
                     and (surface_id := begin_rendering.get("surfaceId"))
-                ):                    
+                ):
                     asyncio.run_coroutine_threadsafe(
                         SubagentRouteManager.set_route_to_subagent_name(
                             surface_id,

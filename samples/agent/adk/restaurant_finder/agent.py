@@ -22,6 +22,7 @@ import jsonschema
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
+from google.adk.models import Gemini
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -93,7 +94,7 @@ class RestaurantAgent:
 
     def _build_agent(self, use_ui: bool) -> LlmAgent:
         """Builds the LLM agent for the restaurant agent."""
-        LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gemini/gemini-2.5-flash")
+        LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gemini/gemini-3-flash-preview")
 
         if use_ui:
             # Construct the full prompt with UI instructions, examples, and schema
@@ -104,7 +105,7 @@ class RestaurantAgent:
             instruction = get_text_prompt()
 
         return LlmAgent(
-            model=LiteLlm(model=LITELLM_MODEL),
+            model=LiteLlm(LITELLM_MODEL),
             name="restaurant_agent",
             description="An agent that finds restaurants and helps book tables.",
             instruction=instruction,

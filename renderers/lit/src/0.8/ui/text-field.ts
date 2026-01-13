@@ -34,6 +34,9 @@ export class TextField extends Root {
   accessor label: StringValue | null = null;
 
   @property()
+  accessor validationRegexp: string | null = null;
+
+  @property()
   accessor inputType: ResolvedTextField["type"] | null = null;
 
   static styles = [
@@ -107,6 +110,8 @@ export class TextField extends Root {
         id="data"
         .value=${value}
         .placeholder=${"Please enter a value"}
+        pattern=${this.validationRegexp ?? nothing}
+        ?required=${this.validationRegexp ? !new RegExp(this.validationRegexp).test("") : false}
         type=${this.inputType === "number" ? "number" : "text"}
       />
     </section>`;

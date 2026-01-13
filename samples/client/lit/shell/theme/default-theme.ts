@@ -200,8 +200,9 @@ export const theme: v0_8.Types.Theme = {
       caption: {},
     },
     Card: {
-      background:
-        "radial-gradient(circle at top left, light-dark(transparent, rgba(6, 182, 212, 0.15)), transparent 40%), radial-gradient(circle at bottom right, light-dark(transparent, rgba(139, 92, 246, 0.15)), transparent 40%), linear-gradient(135deg, light-dark(rgba(255, 255, 255, 0.7), rgba(30, 41, 59, 0.7)), light-dark(rgba(255, 255, 255, 0.7), rgba(15, 23, 42, 0.8)))",
+      background: "light-dark(#e2e8f0, #1e293b)",
+      border: "1px solid light-dark(rgba(0,0,0,0.08), rgba(255,255,255,0.05))",
+      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.02)",
     },
     TextField: {
       "--p-0": "light-dark(var(--n-0), #1e293b)",

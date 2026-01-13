@@ -78,8 +78,8 @@ export const type = `
   }
 
   .typography-sz-bm {
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 20px;
+    line-height: 28px;
   }
 
   .typography-sz-bl {

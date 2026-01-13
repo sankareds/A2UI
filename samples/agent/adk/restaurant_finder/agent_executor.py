@@ -91,7 +91,7 @@ class RestaurantAgentExecutor(AgentExecutor):
 
         if ui_event_part:
             logger.info(f"Received a2ui ClientEvent: {ui_event_part}")
-            action = ui_event_part.get("actionName")
+            action = ui_event_part.get("name")
             ctx = ui_event_part.get("context", {})
 
             if action == "book_restaurant":
@@ -99,14 +99,19 @@ class RestaurantAgentExecutor(AgentExecutor):
                 address = ctx.get("address", "Address not provided")
                 image_url = ctx.get("imageUrl", "")
                 query = f"USER_WANTS_TO_BOOK: {restaurant_name}, Address: {address}, ImageURL: {image_url}"
+                logger.info(f"--- Validate Booking: '{query}' ---")
 
             elif action == "submit_booking":
                 restaurant_name = ctx.get("restaurantName", "Unknown Restaurant")
-                party_size = ctx.get("partySize", "Unknown Size")
-                reservation_time = ctx.get("reservationTime", "Unknown Time")
+                party_size = ctx.get("partySize", "Unknown Size") or "Unknown Size"
+                reservation_time = ctx.get("reservationTime", "Unknown Time") or "Unknown Time"
                 dietary_reqs = ctx.get("dietary", "None")
                 image_url = ctx.get("imageUrl", "")
-                query = f"User submitted a booking for {restaurant_name} for {party_size} people at {reservation_time} with dietary requirements: {dietary_reqs}. The image URL is {image_url}"
+                if reservation_time == "Unknown Time":
+                    query = f"VALIDATION_ERROR: User submitted a booking for {restaurant_name} for {party_size} people without reservation time, so respond to the user that the reservation time is mandatory with the error label next to the field.The image URL is {image_url}"
+                else:
+                    query = f"User submitted a booking for {restaurant_name} for {party_size} people at {reservation_time} with dietary requirements: {dietary_reqs}. The image URL is {image_url}"
+                logger.info(f"--- Submit Booking: '{query}' ---")
 
             else:
                 query = f"User submitted an event: {action} with data: {ctx}"

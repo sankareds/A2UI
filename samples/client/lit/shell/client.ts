@@ -14,11 +14,11 @@
  limitations under the License.
  */
 
-import { Part, SendMessageSuccessResponse, Task } from "@a2a-js/sdk";
+import { Part, SendMessageSuccessResponse } from "@a2a-js/sdk";
 import { A2AClient } from "@a2a-js/sdk/client";
 import { v0_8 } from "@a2ui/lit";
 
-const A2AUI_MIME_TYPE = "application/json+a2aui";
+const A2AUI_MIME_TYPE = "application/json+a2ui";
 
 export class A2UIClient {
   #serverUrl: string;
@@ -36,7 +36,7 @@ export class A2UIClient {
   async #getClient() {
     if (!this.#client) {
       // Default to localhost:10002 if no URL provided (fallback for restaurant app default)
-      const baseUrl = this.#serverUrl || "http://localhost:10002";
+      const baseUrl = this.#serverUrl || "http://localhost:10005";
 
       this.#client = await A2AClient.fromCardUrl(
         `${baseUrl}/.well-known/agent-card.json`,
@@ -54,7 +54,7 @@ export class A2UIClient {
 
   async send(
     message: v0_8.Types.A2UIClientEventMessage | string
-  ): Promise<v0_8.Types.ServerToClientMessage[]> {
+  ): Promise<{ messages: v0_8.Types.ServerToClientMessage[], ui_response: boolean }> {
     const client = await this.#getClient();
 
     let parts: Part[] = [];
@@ -67,7 +67,7 @@ export class A2UIClient {
           parts = [{
             kind: "data",
             data: parsed as unknown as Record<string, unknown>,
-            mimeType: A2AUI_MIME_TYPE,
+            metadata: { mimeType: A2AUI_MIME_TYPE },
           } as Part];
         } else {
           parts = [{ kind: "text", text: message }];
@@ -79,7 +79,7 @@ export class A2UIClient {
       parts = [{
         kind: "data",
         data: message as unknown as Record<string, unknown>,
-        mimeType: A2AUI_MIME_TYPE,
+        metadata: { mimeType: A2AUI_MIME_TYPE },
       } as Part];
     }
 
@@ -96,17 +96,147 @@ export class A2UIClient {
       throw new Error(response.error.message);
     }
 
-    const result = (response as SendMessageSuccessResponse).result as Task;
-    if (result.kind === "task" && result.status.message?.parts) {
-      const messages: v0_8.Types.ServerToClientMessage[] = [];
-      for (const part of result.status.message.parts) {
-        if (part.kind === 'data') {
-          messages.push(part.data as v0_8.Types.ServerToClientMessage);
-        }
-      }
-      return messages;
+    const result = (response as SendMessageSuccessResponse).result as any;
+    const messages: v0_8.Types.ServerToClientMessage[] = [];
+
+    if (result.metadata?.a2a_subagent) {
+      messages.push({
+        a2a_subagent: result.metadata.a2a_subagent,
+      } as any);
     }
 
-    return [];
+    let responseParts = result.status?.message?.parts;
+
+    if (!responseParts && result.history?.length > 0) {
+      const lastMessage = result.history[result.history.length - 1];
+      if (lastMessage.role === "agent") {
+        responseParts = lastMessage.parts;
+      }
+    }
+
+    let ui_response = false;
+    if (responseParts) {
+      for (const part of responseParts) {
+        if (part.kind === 'data') {
+          messages.push(part.data as v0_8.Types.ServerToClientMessage);
+          ui_response = true;
+        }
+      }
+
+      for (const part of responseParts) {
+        if (part.kind === 'text' && !ui_response) {
+          messages.push({
+            beginRendering: {
+              surfaceId: "default",
+              root: "root-column",
+              styles: {
+                primaryColor: "#FF0000",
+                font: "Roboto"
+              }
+            }
+          });
+          messages.push({
+            surfaceUpdate: {
+              surfaceId: "default",
+              components: [
+                {
+                  "id": "root-column",
+                  "component": {
+                    "Column": {
+                      "children": {
+                        "explicitList": [
+                          // "title-heading",
+                          "item-card-template"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "title-heading",
+                  "component": {
+                    "Text": {
+                      "usageHint": "h1",
+                      "text": {
+                        "path": "title"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "item-card-template",
+                  "component": {
+                    "Card": {
+                      "child": "card-layout"
+                    }
+                  }
+                },
+                {
+                  "id": "card-layout",
+                  "component": {
+                    "Row": {
+                      "children": {
+                        "explicitList": [
+                          "card-details"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "card-details",
+                  "weight": 2,
+                  "component": {
+                    "Column": {
+                      "children": {
+                        "explicitList": [
+                          // "template-name",
+                          "template-detail"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "template-name",
+                  "component": {
+                    "Text": {
+                      "usageHint": "h3",
+                      "text": {
+                        "path": "title"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "template-detail",
+                  "component": {
+                    "Text": {
+                      "text": {
+                        "path": "response"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          });
+          messages.push({
+            dataModelUpdate: {
+              surfaceId: "default",
+              path: "/",
+              contents: [
+                {
+                  key: "response",
+                  valueString: part.text,
+                },
+              ],
+            },
+          });
+        }
+      }
+    }
+
+    return { messages, ui_response };
   }
 }
